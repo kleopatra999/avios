@@ -94,3 +94,13 @@ Versions relased so far (and the release date in DD/MM/YY format):
        eg: printnl -x)
  - Fixed bug in com_echo() (Telopt sequence being sent down wrong stream)
  - Minor miscellanious code changes.
+
+1.5.1 (x/3/98)
+ - Stat command now gives file owner and file group info and will recognise
+	   fifo type files. eg: pipes.
+ - Added more syntax checking in com_input().
+ - Fixed crash bug in process death interrupt code.
+ - Fixed truncated filename problem with Solaris BSD compiler directory
+       listing.
+ - Tidied up code some more.
+ - Added a makefile.

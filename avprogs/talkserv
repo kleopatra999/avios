@@ -28,7 +28,7 @@ var @commands
 
 #--------------- Load room descriptions & links----------------
 
-&roomdata
+&roomdata.inc
 
 #------------------ Main procedure ------------------
 proc main

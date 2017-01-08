@@ -1,5 +1,5 @@
 /******************************************************************************
-                           AVIOS 1.5.0 header file
+                           AVIOS 1.5.1 header file
                    Copyright (C) Neil Robertson 1997-1998
  ******************************************************************************/
 
@@ -714,6 +714,19 @@ char *colcom[NUM_COLS]={
 "BK","BR","BG","BY",
 "BB","BM","BT","BW"
 };
+
+#ifdef SUN_BSD_BUG
+/* The structure the bsd libs require. This is set up incorrectly in
+   the Solaris header files for the BSD readdir func as it contains an extra
+   field which it doesn't want which in turn causes incorrect data. */
+typedef struct {
+	ino_t d_ino;      /* "inode number" of entry */
+	off_t d_off;      /* offset of disk directory entry */
+	char  d_name[1];  /* A pointer won't work here for some reason */
+	}* avios_dirent;
+#else
+typedef struct dirent* avios_dirent;
+#endif
 
 /* Other globals */
 int num_words,be_daemon,max_processes,max_mesgs,max_errors,exit_remain;

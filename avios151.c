@@ -1,11 +1,11 @@
 /****************************************************************************
-                           AVIOS version 1.5.0
+                           AVIOS version 1.5.1
       A VIrtual Operating System, Copyright (C) Neil Robertson 1997-1998
 
-                     Version date: 19th January 1998
+                      Version date: 26th March 1998
 
  Created out of blood and sweat using incantations of the C after dusk and 
- in dark dungeons found in London, England from January 1997 to January 1998.
+ in dark dungeons found in London, England from January 1997 to March 1998.
 
  Please read the README & COPYRIGHT files.
 
@@ -39,11 +39,12 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <pwd.h>
+#include <grp.h>
 #include <errno.h>
 
-#include "avios150.h"
+#include "avios151.h" 
 
-#define VERSION "1.5.0"
+#define VERSION "1.5.1"
 
 struct streams *get_stream();
 int write_syslog(char *, ...);
@@ -57,27 +58,11 @@ char *argv[];
 {
 qbm=0; /* quiet bootup mode to off */
 
+/* Setup the build string */
+setup_build_string();
+
 /* Go through command line args */
 parse_command_line(argc,argv);
-
-/* Set up build parameter string. */
-build[0]='\0';
-#ifdef LINUX
-strcat(build,"LINUX");
-#endif
-#ifdef FREEBSD
-if (build[0]) strcat(build,", ");
-strcat(build,"FREEBSD");
-#endif
-#ifdef NO_USLEEP
-if (build[0]) strcat(build,", ");
-strcat(build,"NO_USLEEP");
-#endif
-#ifdef NO_CRYPT
-if (build[0]) strcat(build,", ");
-strcat(build,"NO_CRYPT");
-#endif
-if (!build[0]) strcpy(build,"STANDARD");
 
 /* Startup */
 if (!qbm) {
@@ -121,6 +106,41 @@ mainloop();
 
 
 
+/*** Setup the build parameter string ***/
+setup_build_string()
+{
+/* Set up build parameter string. */
+build[0]='\0';
+
+#ifdef LINUX
+strcat(build,"LINUX");
+#endif
+
+#ifdef FREEBSD
+if (build[0]) strcat(build,", ");
+strcat(build,"FREEBSD");
+#endif
+
+#ifdef NO_USLEEP
+if (build[0]) strcat(build,", ");
+strcat(build,"NO_USLEEP");
+#endif
+
+#ifdef NO_CRYPT
+if (build[0]) strcat(build,", ");
+strcat(build,"NO_CRYPT");
+#endif
+
+#ifdef SUN_BSD_BUG
+if (build[0]) strcat(build,", ");
+strcat(build,"SUN_BSD_BUG");
+#endif
+
+if (!build[0]) strcpy(build,"STANDARD");
+}
+
+
+
 /*** Parse the command line arguments ***/
 parse_command_line(argc,argv)
 int argc;
@@ -148,16 +168,16 @@ for(i=1;i<argc;++i) {
 		}
 	if (!strcmp(argv[i],"-d")) {  be_daemon=1;  continue;  }
 	if (!strcmp(argv[i],"-q")) {  qbm=1;  continue;  }
-	if (!strcmp(argv[i],"-v")) {  printf("%s\n",VERSION);  exit(0);  }
+	if (!strcmp(argv[i],"-v")) {  printf("%s %s\n",VERSION,build);  exit(0);  }
 	if (!strcmp(argv[i],"-h")) {
-		printf("\nAVIOS version %s\n",VERSION);
-		printf("Copyright (C) Neil Robertson 1997/1998\n\n"); 
+		printf("\nAVIOS version %s\n\nBuild: %s\n\n",VERSION,build);
+		printf("Copyright (C) Neil Robertson 1997-1998\n\n"); 
 		printf(usage,argv[0]);
 		puts("\n-i: Set the initalisation file (default is 'init').");
 		puts("-s: Set the system log file (default is standard output).");
 		puts("-d: Run as a daemon.");
 		puts("-q: Quiet bootup mode (no non system log messages).");
-		puts("-v: Print version number.");
+		puts("-v: Print version and build.");
 		puts("-h: Print this help message.\n");
 		exit(0);
 		}
@@ -341,10 +361,10 @@ int i,val,yesno;
 char line[ARR_SIZE+1],w1[ARR_SIZE+1],w2[ARR_SIZE+1],*s;
 
 char *coms[]={
-"code_path","root_path","colour_def","allow_ur_path",
-"kill_any","child_die","ignore_sigterm","wait_on_dint",
-"pause_on_sigtstp","enhanced_dump","max_errors","max_mesgs",
-"max_processes","exit_remain","swapout_after","connect_timeout",
+"code_path",       "root_path",    "colour_def",    "allow_ur_path",
+"kill_any",        "child_die",    "ignore_sigterm","wait_on_dint",
+"pause_on_sigtstp","enhanced_dump","max_errors",    "max_mesgs",
+"max_processes",   "exit_remain",  "swapout_after", "connect_timeout",
 "tuning_delay",
 };
 
@@ -396,7 +416,8 @@ while(!feof(fp)) {
 				case 2:
 				if (!strcmp(w2,"ON") || !strcmp(w2,"on")) 
 					colour_def=1;
-				else if (!strcmp(w2,"OFF") || !strcmp(w2,"off")) 
+				else 
+				if (!strcmp(w2,"OFF") || !strcmp(w2,"off")) 
 					colour_def=0;
 				else goto ERROR;
 				break;
@@ -444,22 +465,18 @@ waffle()
 {
 char *data="\
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\
-+++!Bwjpt!2/6/1-!Dpqzsjhiu!)D*!Ofjm!Spcfsutpo!2::8.2::9!+++!!!!!!!!!!!\
-!!Uijt!jt!Bwjpt-!B!WJsuvbm!Pqfsbujoh!Tztufn!eftjhofe!up!svo!po!upq!pg!\
-Vojy!boe!qspwjef!b!tjnqmf!xbz!up!xsjuf!UDQ!tfswfs!qsphsbnt!)boe!opx!bm\
-tp!epft!uif!tbnf!gps!uuz!efwjdft*/!Ju!xbt!xsjuufo!cz!nf!)Ofjm!Spcfsutp\
-o*!gspn!Kbovbsz!2::8!up!Kbovbsz!2::9!nbjomz!up!qspwf!up!nztfmg!uibu!J!\
-dpvme!xsjuf!tpnfuijoh!mjlf!uijt!cvu!bmtp!up!gjmm!jo!uif!ujnf!cfuxffo!e\
-vmm!qspkfdu!bttjhonfout!bu!xpsl!;*/!Guq!tjuft!gps!uijt!tpguxbsf!bsf!dv\
-ssfoumz!guq/ddt/ofv/fev0qvc0nve0tfswfst0njtd0bwjpt!boe!guq/efnpo/dp/vl\
-0qvc0vojy0njtd0bwjpt/!Jg!zpv!ibwf!boz!dpotusvdujwf!dpnnfout!bcpvu!uijt\
-!tztufn!qmfbtf!fnbjm!nf!bu!ofjmAphibn/efnpo/dp/vl!cvu!jg!zpv!tjnqmz!xb\
-ou!up!gmbnf!nf!bcpvu!tpnfuijoh!zpv!epo(u!mjlf!uifo!zpv!dbo!kvtu!hp!gvd\
-l!zpvstfmg/!Uibolt!nvtu!hp!up!uif!mbet!bu!xpsl!xip!usjfe!pvu!nz!Bwjpt!\
-uftu!qsphsbnt!jodmvejoh!Cpccz-!Sjdibse-!Nbsujo-!Kfbo!boe!Nbsl!boe!bozp\
-of!pvu!uifsf!jo!ofu!mboe!xip!vtft!uijt!tztufn/!Bozxbz!-!mbdljoh!boznps\
-f!tvjubcmf!jotqjsbujpo!J(n!hpjoh!up!rvju!opx!xijmf!J(n!bifbe/!Fokpz/!;\
-*!/////!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
+4!////!3!////!2!////!BBBBOOOE!BDUJPO!////!(Dpohsbuvmbujpot!po!gjoejoh!\
+uijt!boe!xfmdpnf!up!uif!Bwjpt!Fbtufs!Fhh/!Bt!jt!usbejujpobm!xjui!uiftf\
+!uijoht!J(e!cfuufs!hfu!po!xjui!uif!dsfejut-!uibolt!boe!tuvgg!cfgpsf!zp\
+v!bmm!hfu!cpsfe////!DSFEJUT;!Ofjm!Spcfsutpo!)Nf*/!J!xspuf!uijt!bmm!cz!\
+nz!mjuumf!mpoftpnf/!UIBOLT;!Cpccz-!Sjdibse-!Nbsujo-!Kfbo!'!Nbsl!gps!uf\
+tujoh!)xjuujohmz!ps!puifsxjtf!;*!tpnf!pg!nz!Bwjpt!qsphsbnt/!TUVGG;!Bwj\
+pt!jt!Dpqzsjhiu!)D*!Ofjm!Spcfsutpo!2::8.2::9!boe!J!xspuf!ju!kvtu!up!tf\
+f!jg!J!dpvme-!boe!///!J!dpvme!;*!Jg!zpv!epo(u!mjlf!ju-!xfmm-!J!epo(u!h\
+jwf!b!tiju!gsbolmz!tp!hp!uzqf!sn!.sg!+!boe!hfu!mptu///////!Gps!uiptf!p\
+g!zpv!tujmm!sfbejoh!bu!uijt!qpjou!uibol!zpv!gps!vtjoh!Bwjpt!boe!ibwf!g\
+vo/(!//////!BBBBBOOE!DVU/!Pl!fwfszpof-!jut!b!xsbq//////!!!!!!!!!!!!!!!\
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
 
 char *sptr,*cptr,*ptr;
 int spaces,i;
@@ -483,7 +500,7 @@ while(1) {
 #ifdef NO_USLEEP
 	sleep(1);
 #else
-	usleep(250000);
+	usleep(200000);
 #endif
 	}
 }
@@ -612,11 +629,12 @@ while(!feof(fp)) {
 		if (!qbm) printf("image");  
 		images++;  
 		}
-	else if (!qbm) {
-			if (back) printf("background"); 
-			else if (dev) printf("device (%s)",devname);
-			else printf("terminal");
-			}
+	else 
+	if (!qbm) {
+		if (back) printf("background"); 
+		else if (dev) printf("device (%s)",devname);
+		else printf("terminal");
+		}
  	if (!qbm) {
 		printf(" process %d (%s)\n",new_pid,argv[0]);
 		if (swapout) printf("   Swapout_after set to %d\n",swapout);
@@ -633,10 +651,11 @@ while(!feof(fp)) {
 		}
 	else {
 		if (back) set_string(&current_pcs->site,"<BACK>");
-		else if (dev) {
-				sprintf(text,"<%s>",devname);
-				set_string(&current_pcs->site,text);
-				}
+		else 
+		if (dev) {
+			sprintf(text,"<%s>",devname);
+			set_string(&current_pcs->site,text);
+			}
 		else set_string(&current_pcs->site,"<TERM>");
 		current_pcs->status=RUNNING;
 		}
@@ -660,12 +679,13 @@ while(!feof(fp)) {
 		get_stream("STDIN")->external=-1;
 		get_stream("STDOUT")->external=-1;
 		}
-	else if (dev) {
-			(st=get_stream("STDIN"))->external=dev;
-			st->device=1;
-			(st=get_stream("STDOUT"))->external=dev;
-			st->device=1;
-			}
+	else 
+	if (dev) {
+		(st=get_stream("STDIN"))->external=dev;
+		st->device=1;
+		(st=get_stream("STDOUT"))->external=dev;
+		st->device=1;
+		}
 	current_pcs->pc=current_proc->start_pos;
 	save_process_state(current_pcs,1);
 
@@ -1799,8 +1819,11 @@ if (pcs->death_pid &&
 	save_process_state(pcs,0);
 
 	load_process_state(ipcs);
-	sprintf(text,"%d %s",pcs->pid,pcs->death_mesg);
+
+	if (pcs->death_mesg) sprintf(text,"%d %s",pcs->pid,pcs->death_mesg);
+	else sprintf(text,"%d",pcs->pid);
 	set_variable("$int_mesg",NULL,text,1);
+
 	ipcs->old_status=ipcs->status;
 	ipcs->status=int_type;
 	save_process_state(ipcs,0);
@@ -4457,12 +4480,13 @@ while(1) {
 		if (!eval_result) return OK; 
 		op=1;
 		}
-	else if (!strcmp(w,"or")) {
-			if (pc==end) return ERR_SYNTAX;
-			/* If eval_result !=0 can return now */
-			if (eval_result) return OK;
-			op=2;
-			}
+	else 
+	if (!strcmp(w,"or")) {
+		if (pc==end) return ERR_SYNTAX;
+		/* If eval_result !=0 can return now */
+		if (eval_result) return OK;
+		op=2;
+		}
 	else if (!strcmp(w,"xor")) op=3;
 	else if (pc==end+1) return OK;
 	else return ERR_SYNTAX;
@@ -5594,22 +5618,25 @@ for(pc2=pc+1;pc2<=prog_word[pc].end_pos;) {
 
 			case MAXSTR:
 			if (cnt==1) set_string(&result,valptr);
-			else if (compare_strings(result,valptr)<0)
-					set_string(&result,valptr);
+			else 
+			if (compare_strings(result,valptr)<0)
+				set_string(&result,valptr);
 			break;
 
 			case MINSTR:
 			if (cnt==1) set_string(&result,valptr);
-			else if (compare_strings(result,valptr)>0)
-					set_string(&result,valptr);
+			else 
+			if (compare_strings(result,valptr)>0)
+				set_string(&result,valptr);
 			break;
 
 			case PRINT   : 
 			case PRINTNL :
 			if (valptr!=NULL) {
 				if (mesg_q) append_string(&result,valptr);
-				else if ((ret=write_stream(valptr))!=OK) 
-						return ret;
+				else 
+				if ((ret=write_stream(valptr))!=OK) 
+					return ret;
 				}
 			break;
 
@@ -5643,14 +5670,16 @@ for(pc2=pc+1;pc2<=prog_word[pc].end_pos;) {
 			case MAXCOM:
 			case MAXSTR:
 			if (cnt==1) set_string(&result,w);
-			else if (compare_strings(result,w)<0)
-					set_string(&result,w);
+			else 
+			if (compare_strings(result,w)<0)
+				set_string(&result,w);
 			break;
 
 			case MINSTR:
 			if (cnt==1) set_string(&result,w);
-			else if (compare_strings(result,w)>0)
-					set_string(&result,w);
+			else 
+			if (compare_strings(result,w)>0)
+				set_string(&result,w);
 			break;
 
 			case PRINT   : 
@@ -5747,22 +5776,25 @@ for(pc2=pc+1;pc2<=prog_word[pc].end_pos;) {
 
 				case MAXSTR:
 				if (cnt==1) set_string(&result,valptr);
-				else if (compare_strings(result,valptr)<0)
-						set_string(&result,valptr);
+				else 
+				if (compare_strings(result,valptr)<0)
+					set_string(&result,valptr);
 				break;
 
 				case MINSTR:
 				if (cnt==1) set_string(&result,valptr);
-				else if (compare_strings(result,valptr)>0)
-						set_string(&result,valptr);
+				else 
+				if (compare_strings(result,valptr)>0)
+					set_string(&result,valptr);
 				break;
 
 				case PRINT   : 
 				case PRINTNL :
 				if (valptr!=NULL) {
 					if (mesg_q) append_string(&result,valptr);
-					else if ((ret=write_stream(valptr))!=OK) 
-							return ret;
+					else 
+					if ((ret=write_stream(valptr))!=OK) 
+						return ret;
 					}
 				break;
 
@@ -6490,9 +6522,10 @@ while(1) {
 				real_line=new_real_line;  return ret;
 				}
 			}
-		else if ((ret=set_variable(newvar,proc,rstack_ptr->value,1))!=OK) {
-				real_line=new_real_line;  return ret;
-				}
+		else 
+		if ((ret=set_variable(newvar,proc,rstack_ptr->value,1))!=OK) {
+			real_line=new_real_line;  return ret;
+			}
 		}
 	pc2++;
 	}
@@ -6625,11 +6658,18 @@ return ERR_INTERNAL;
 com_input(com_num,pc) 
 int com_num,pc;
 {
-int ret;
+int ret,pc2;
 
 if (current_instream==NULL) return ERR_INVALID_STREAM;
 if (current_instream->block && current_pcs->status==INPUT_WAIT) return OK;
+
 if (prog_word[pc].end_pos - pc<1) return ERR_SYNTAX;
+
+/* Check variable names given are ok */
+for(pc2=pc+1;pc2<=prog_word[pc].end_pos;++pc2) {
+	if (isinteger(prog_word[pc2].word,1) || 
+	    !isalnumstr(prog_word[pc2].word)) return ERR_INVALID_ARGUMENT;
+	}
 
 /* If theres no flag set then either we have just got to the input command or
    the data is ready for us to read out the buffer. */
@@ -6661,6 +6701,8 @@ com_strings1(com_num,pc)
 int com_num,pc;
 {
 struct stat fs;
+struct passwd *pwd;
+struct group *grp;
 int ret,len,val,legal,dup;
 char *valptr,*result,*s,*s2,*e,*e2,c,c2;
 char pathname[100],type[10];
@@ -6781,16 +6823,31 @@ switch(com_num) {
 		return ERR_CANT_STAT_FS_ENTRY;
 		}
 
+	/* Get type */
 	switch(fs.st_mode & S_IFMT) {
-		case S_IFDIR: strcpy(type,"dir"); break;
-		case S_IFREG: strcpy(type,"file"); break;
-		case S_IFLNK: strcpy(type,"link"); break;
-		case S_IFCHR: strcpy(type,"cdev"); break;
-		case S_IFBLK: strcpy(type,"bdev"); break;
+		case S_IFDIR : strcpy(type,"dir"); break;
+		case S_IFREG : strcpy(type,"file"); break;
+		case S_IFLNK : strcpy(type,"link"); break;
+		case S_IFCHR : strcpy(type,"cdev"); break;
+		case S_IFBLK : strcpy(type,"bdev"); break;
+		case S_IFIFO : strcpy(type,"fifo"); break;
 		case S_IFSOCK: strcpy(type,"socket"); break;
 		default: strcpy(type,"unknown");
 		}
+
+	/* Get main file data */
 	sprintf(text,"%s %d %03o %d %d",type,(int)fs.st_size,fs.st_mode & 0x1FF,(int)fs.st_mtime,(int)fs.st_atime);
+
+	/* Get owner */
+	if ((pwd=getpwuid(fs.st_uid))==NULL) 
+		sprintf(text,"%s %d",text,fs.st_uid);	
+	else sprintf(text,"%s %s",text,pwd->pw_name);	
+
+	/* Get group */
+	if ((grp=getgrgid(fs.st_gid))==NULL)
+		sprintf(text,"%s %d",text,fs.st_gid);	
+	else sprintf(text,"%s %s",text,grp->gr_name);	
+
 	return push_rstack(text);
 	}
 return ERR_INTERNAL;
@@ -7213,8 +7270,9 @@ if (isnull(valptr[2])) {
 	    com_num==INSERTELEM ||
 	    com_num==OVERELEM) return ERR_INVALID_ARGUMENT;
 	}
-else if (!isinteger(valptr[2],0) || (num2=atoi(valptr[2]))<1) 
-		return ERR_INVALID_ARGUMENT;
+else 
+if (!isinteger(valptr[2],0) || (num2=atoi(valptr[2]))<1) 
+	return ERR_INVALID_ARGUMENT;
 
 
 /* Do command specific stuff. Remember that strings start at position _1_ in 
@@ -7689,8 +7747,10 @@ int ret,whence;
 if (prog_word[pc].end_pos - pc < 2) return ERR_SYNTAX;
 
 if (!strcmp(prog_word[pc+1].word,"start")) whence=SEEK_SET;
-else if (!strcmp(prog_word[pc+1].word,"current")) whence=SEEK_CUR;
-	else return ERR_SYNTAX;
+else 
+if (!strcmp(prog_word[pc+1].word,"current")) whence=SEEK_CUR;
+else return ERR_SYNTAX;
+
 pc+=2;
 if ((ret=push_rstack_result(&pc,STRING_ILLEGAL))!=OK) return ret;
 return seek_stream(com_num,whence,atoi(rstack_ptr->value));
@@ -7704,7 +7764,7 @@ com_dir(com_num,pc)
 int com_num,pc;
 {
 DIR *dir;
-struct dirent *ds;
+avios_dirent ds;
 struct stat fs;
 int com,ret,type,v,v2,pc2;
 char *list,pathname[ARR_SIZE],filename[ARR_SIZE];
@@ -7717,6 +7777,7 @@ NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL
 };
 
 
+/* Check syntax */
 if (prog_word[pc].end_pos - pc<2) return ERR_SYNTAX;
 pc2=pc+1;
 for(com=0;com<7;++com) 
@@ -7744,7 +7805,7 @@ while(pc2<=prog_word[pc].end_pos) {
 	}
 
 list=NULL;
-while((ds=readdir(dir))!=NULL) {
+while((ds=(avios_dirent)readdir(dir))!=NULL) {
 	sprintf(filename,"%s/%s",pathname,ds->d_name);
 	lstat(filename,&fs);
 	type=fs.st_mode & S_IFMT;
@@ -7845,8 +7906,9 @@ for(pc2=pc;pc2<=endpos;) {
 		else {
 			if (strchr("diouxXeE",c2)) 
 				sprintf(text,fptr_start,atoi(val));
-			else if (strchr("fgG",c2)) 
-					sprintf(text,fptr_start,(float)atof(val));
+			else 
+			if (strchr("fgG",c2)) 
+				sprintf(text,fptr_start,(float)atof(val));
 			else {
 				/* Try and prevent overflow of text array */
 				if (strlen(val)>ARR_SIZE)
@@ -8333,9 +8395,10 @@ if (len<2) return ERR_SYNTAX;
 if (!strcmp(prog_word[pc+1].word,"from")) {
 	if (len<3) return ERR_SYNTAX;
 	}
-else if (!strcmp(prog_word[pc+1].word,"ignore")) {
-		if (len!=2) return ERR_SYNTAX;
-		}
+else 
+if (!strcmp(prog_word[pc+1].word,"ignore")) {
+	if (len!=2) return ERR_SYNTAX;
+	}
 else return ERR_SYNTAX;
 
 w=prog_word[pc+2].word;

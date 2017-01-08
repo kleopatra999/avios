@@ -2,26 +2,17 @@
 
 This software has been developed and tested on Linux 1.2.13, HP-UX 10.01 & 
 10.20, Digital Unix 3.2 (OSF) and SunOS 5.5 (Solaris) so it should compile on 
-these without any problems (well ok , there may be some warnings :). Since the 
-code is all in one module** and all the header is just one module there is no
-makefile, you just call the compiler direct from the command line (or make
-up a short shell file) as so:
+these without any problems (well ok , there may be some warnings :). Uncomment
+the appropriate CC line in the makefile for your version of Unix and hopefully
+all should be well. The runnable binary created is called "avios".
 
-Linux: cc -DLINUX avios140.c
-
-OSF, SunOS5.5: cc avios140.c
-    (For SunOS above make sure cc is a link or alias to the berkeley
-     compiler which is usually /usr/ucb/cc. SunOS GCC might not work)
-
-HP-UX 10.01: cc -Ae -DNO_USLEEP avios140.c   
-HP-UX 10.20: cc -Ae avios140.c  
-    (You'll need the HP-UX ANSI compiler for both of the above)
-
-FreeBSD: cc -DFREEBSD avios140.c  
-     (Some setups may have problems with the crypt() call. If this is the
-      case then add -DNO_CRYPT on the compile line.)
-
-AIX: cc avios140.c (maybe, I'm just guessing)
+Solaris users should note that most Solaris systems have 2 compilers 
+installed. One is the main Solaris one and is the BSD compatable one.
+Ironically the BSD one appears to be more standardised than the Sun one
+(though any users of SunOS 4 and its hopeless non-ansi compiler won't be too
+shocked at this news :) and so use that in preference. It does have one
+minor bug though (or rather its header files do) but this is taken care of
+by a command line define.
 
 If you have a system that is not mentioned here and it compiles successfully
 on it please let me know what the compiler command line options are so I can
@@ -30,15 +21,13 @@ the lines of "usleep() not defined" etc then use the -DNO_USLEEP option as
 per HP-UX 10.01.
 
 
-All unix compilers default to "a.out" as the binary which you can run just by 
-typing the name. Avios has some command line options however which you can
-use. These are:
+Avios has some command line options however which you can use. These are:
 
  -i <init file>: Set the init file to something other than the default 'init'.
  -s <syslog file>: Set the syslog to write to a file rather than stdout.
  -d: Run as a daemon.
  -q: Quiet bootup mode - Don't print any non-syslog messages.
- -v: Print the Avios version number.
+ -v: Print the Avios version number and build.
  -h: Print some command line option help.
 
 When Avios is running it catches a number of signals. These include control-C 

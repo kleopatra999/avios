@@ -1,0 +1,53 @@
+# This prints out (in a slightly different format) the same data as the
+# Unix "ls" command for the current directory.
+
+&stdalias.inc
+
+proc main
+var @files @permprint
+var dirname s filename stats 
+var perm user group world 
+var time 
+
+set permprint "--- --x -w- -wx r-- r-x rw- rwx"
+
+while TRUE
+	do
+		print "Enter directory> "
+		input dirname
+	until dirname!=""
+
+	if [trap [set files [dir all dirname]]]!=OK
+		printnl "No such directory.";  continue
+	fi
+	foreach s filename in files
+		if [midstr dirname [strlen dirname]]="/"
+			set filename [format "%s%s" dirname filename]
+		else
+			set filename [format "%s/%s" dirname filename]
+		fi
+		set stats [stat filename]
+	
+		# Type and size
+		print [format "%-6s %7d %-8s %-8s " \
+		      [elements stats 1] \
+		      [elements stats 2] \
+		      [elements stats 6] \
+		      [elements stats 7]]
+	
+		# Print permissions like ls command
+		set perm [elements stats 3]
+		set user [math [midstr perm 1]+1]
+		print permprint:user
+		set group [math [midstr perm 2]+1]
+		print permprint:group
+		set world [math [midstr perm 3]+1]
+		print permprint:world "  "
+	
+		# Print date & time & name
+		set time [elements stats 4]
+		printnl [gettime date time] " " [gettime time time] " " filename
+	nexteach
+wend
+endproc
+

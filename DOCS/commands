@@ -1,4 +1,4 @@
-                    *** Commands with version 1.5.0 ***
+                    *** Commands with version 1.5.1 ***
 
 -------------------------------------------------------------------------------
 
@@ -794,9 +794,22 @@ naturally). An error is returned if this can't be done.
 
 stat <filesytem entry>
 
-This gives the file type, size, permissions, last modified and last accessed 
-information for a filesystem entry. The last two are given as the number of 
-seconds since 1970.
+This returns the following information: 
+  file type, size, permissions, last modified, last accessed, owner, group
+
+File type will be one of the following:
+   dir     - directory
+   file    - regular file
+   link    - soft link (hard links will be seen as regular files)
+   cdev    - character device (eg: tty)
+   bdev    - block device (eg: disk driver)
+   fifo    - FIFO special file (eg: a pipe)
+   socket  - AF_UNIX socket
+   unknown - unknown type
+
+The last modified and accessed fields are given as the number of seconds since 
+1970 which can be converted into times using the gettime command. The owner
+and group fields were added in release 1.5.1.
 
 eg: printnl [gettime time [elements [stat "myfile" ] 4]]
 
@@ -810,6 +823,23 @@ format supported by the unix chmod command.
 
 eg: chmod "myfile" 600
     printnl [elements [stat "myfile"] 3]
+
+-------------------------------------------------------------------------------
+
+mkdir <directory> <octal permissions>
+
+This will create a directory with the given permissions if supplied. If
+they are not given then the permissions default to 0755.
+
+eg: mkdir "tmpdir" 700
+
+-------------------------------------------------------------------------------
+
+rmdir <directory list>
+
+This will remove directories.
+
+eg: rmdir "tmpdir" "neilsdir"
 
 -------------------------------------------------------------------------------
 

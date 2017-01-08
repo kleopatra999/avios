@@ -15,7 +15,7 @@ max_mesgs        10
 #exit_remain      0
 swapout_after    10
 connect_timeout  1
-tuning_delay     50
+#tuning_delay     50
 
    
 PROCESSES:
@@ -32,3 +32,4 @@ BACK,20 talkserv    talkserv
 #BACK    virus2      virus2
 #BACK    sendprog    sendprog
 #BACK    killer      killer
+#TERM    ls          ls
