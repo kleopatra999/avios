@@ -7,7 +7,7 @@ child_die        YES
 #ignore_sigterm   YES
 wait_on_dint     YES
 pause_on_sigtstp NO
-enhanced_dump    YES
+#enhanced_dump    YES
 colour_def       ON
 max_processes    10000
 max_mesgs        10
@@ -15,19 +15,20 @@ max_mesgs        10
 #exit_remain      0
 swapout_after    10
 connect_timeout  1
-#tuning_delay     100
+tuning_delay     50
 
    
 PROCESSES:
-#TERM pcs        pcs
-BACK,20 talkserv   talkserv
-4000 talkclient talkclient
-4010 clock      clock
-4020 ox         noughts&crosses 
-4030 runprog    runprog 
-4040 runprog2   runprog2 
-8080 webserv    webserv
-#BACK virus      virus
-#BACK virus2     virus2
-#BACK sendprog   sendprog
-#BACK killer     killer
+TERM    pcs         pcs
+4000    talkclient  talkclient
+BACK,20 talkserv    talkserv
+4010    clock       clock
+4020,20 ox          noughts&crosses 
+4030    runprog     runprog 
+4040    runprog2    runprog2 
+4050    bounce      bounce
+8080    webserv     webserv
+#BACK    virus       virus
+#BACK    virus2      virus2
+#BACK    sendprog    sendprog
+#BACK    killer      killer

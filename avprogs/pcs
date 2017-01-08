@@ -1,13 +1,13 @@
 # A very simple console program. I could make it flashier but I can't be
 # bothered.
 
-&stdalias
+&stdalias.inc
 
 proc main
 var line com
 
 print [format "\n~BB*** AVIOS CONSOLE ***\n\n"]
-while 1
+while TRUE
 	print ">"
 	input line
 	if line=""; continue; fi

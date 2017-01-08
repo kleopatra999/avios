@@ -1,4 +1,4 @@
-                          *** THE COMMANDS ***
+                    *** Commands with version 1.5.0 ***
 
 -------------------------------------------------------------------------------
 
@@ -116,39 +116,44 @@ eg: printnl [mulstr "'ello " 3] "whats going on 'ere then?"
 
 -------------------------------------------------------------------------------
 
-add <numeric list>
-sub <numeric list>
-mul <numeric list>
-div <numeric list>
-mod <numeric list>
+math <maths equation/expression>
 
-These are the maths commands, mod being the modulus.
+This works out normal maths equations and is a replacement for the add, sub, 
+mul, div, mod, bwa, bwo, bwx, bsl & bsr commands that appeared in previous 
+versions and have now been removed. Equations can use variables and embedded 
+commands and full nested bracketing is supported.
 
-eg: printnl [add 1 2 3]
+Operands it understands are as follows:
+	+, -, *, /: standard maths operands
+     %: modulus
+     ^: power
+     &: bitwise AND
+     |: bitwise OR
+	~: bitwise XOR
+    <<: bit shift left
+    >>: bit shift right
+     <: less than
+     >: greater than
+    <=: less than equals
+    >=: greater than equals
+    !=: not equals
 
--------------------------------------------------------------------------------
+Priorites are as follows:
+     &, |, ~, <<, >>: priority 4 (highest)
+     ^, %: 3
+     *, /: 2
+     +, -: 1
+     >, <, <=, >=, !=: 0 (lowest)
 
-bwa <number> <number>
-bwo <number> <number>
-bwx <number> <number>
+All the comparison operands ( eg <= ) either produce a 1 or 0 if the test is
+true or false respectively.
 
-These commands are the bitwise AND, OR and XOR commands respectively. Bear
-in mind that the internal representation of the number is as a C 4 byte
-integer and results will be affected accordingly. 
-
-eg: 
-
-# Print out file permissions in unix "ls" command style
-print "File> "; input file
-set perms [elements [stat file] 3] # Get file permissions eg: 644, 711 etc
-for i 1 to 3
-     set val [midstr perms i]
-     if [bwa val 4]; print "r"; else; print "-"; endif
-     if [bwa val 2]; print "w"; else; print "-"; endif
-     if [bwa val 1]; print "x"; else; print "-"; endif
-next
-printnl
-
+eg:
+  do
+  	set limit [rand 10]
+  until limit!=0
+  printnl [math ([rand limit]-limit/2)*10]
+ 
 -------------------------------------------------------------------------------
 
 cpl <number>
@@ -158,18 +163,6 @@ the reversal of all the bits in the integer ie: 0's become 1 and 1's become
 0. To get the twos complement simply add 1 to the result.
 
 eg: printnl [cpl 0]
-
--------------------------------------------------------------------------------
-
-bsl <number> <shift by>
-bsr <number> <shift by>
-
-These are the bit shift left and bit shift right commands. They perform the
-same functions as << and >> in C. The shift by is how may bits the number is
-shifted up or down by.
-
-eg: printnl [bsl 1 2]
-    printnl [bsr 4 2]
 
 -------------------------------------------------------------------------------
 
@@ -209,6 +202,37 @@ eg: printnl "hello" [addstr "cru" "el"] "world " 2 " day"
 
 -------------------------------------------------------------------------------
 
+locate <x> <y>
+
+This will locate the cursor at the given position on the screen. Avios does
+not find out the size of any given screen a process is writing to so it will
+allow any values for x and y that are greater than zero. ie co-ordinates go
+from 1-n.
+
+eg: This draws a box in the centre of the screen
+
+   proc main
+   var y
+
+   locate 30 5; print [mulstr "#" 20]
+   locate 30 15; print [mulstr "#" 20]
+
+   for y 5 to 15
+           locate 30 y; print "#"
+           locate 50 y; print "#"
+   next
+   endproc
+
+
+-------------------------------------------------------------------------------
+
+cls
+
+This command takes no arguments and simply clears the screen. It has exactly
+the same effect as doing print "~CL" but is a convenient shorthand for it.
+
+-------------------------------------------------------------------------------
+
 label "<label>"
 goto <label>
 
@@ -226,7 +250,7 @@ if <expression>
 endif/fi
 
 The if statement works in the expected way and _must_ be terminated with an
-endif or fi. The else statement is optional. The fi command is new for 1.4
+endif or fi. The else statement is optional. The fi command was new in 1.4
 and I added it because on reflection I felt that endif was a bit long winded
 (you can tell I'm a C coder at heart :) but the endif remains for backwards 
 compatability.
@@ -302,9 +326,9 @@ chosen
 This is an analog of the C switch statement but it has one crucial difference
 which is that the continue command plays a part and it will cause the
 interpreter to jump back to the beginning of the choose as in a loop.
-However you can use the acontinue (alternative continue) command (new to 1.4) 
-which behaves in the "normal" way inside a choose (ie it will continue from the
-start of the loop body surrounding the choose structure).
+However you can use the acontinue (alternative continue) command which behaves 
+in the "normal" way inside a choose (ie it will continue from the start of the 
+loop body surrounding the choose structure).
 
 eg: choose cnt
        value 1; printnl "Its 1, 3 or 4"; break
@@ -330,7 +354,7 @@ eg:
    while $break!="END"
        inc j
        for i 1 to 10
-           if [add i j]=5; break "END"; endif
+           if [math i+j]=5; break "END"; endif
        next
    wend
    printnl i "," j
@@ -374,7 +398,7 @@ being defined by placing a star '*' in front of the variable) and can also
 be declare as an array or read only. 
 
 eg proc fred c *d
-      set d [mul c 2]
+      set d [math c*2]
    endproc
 
 -------------------------------------------------------------------------------
@@ -388,7 +412,7 @@ currently returns the exit code to the unix shell and the exit code can only
 be a number.
 
 eg: if a=b; return "fred"
-    else; exit [sub a b]
+    else; exit [math a-b]
     endif
     
 -------------------------------------------------------------------------------
@@ -677,7 +701,8 @@ means that if there is no data on a stream or the data is incomplete any
 "input" command using that stream will hang until normally a newline is
 seen along with preceding data (other times it will return include an EOF or a 
 closed socket). If noblocking is set the input will get whatever data is there 
-if any and return immediately. 
+if any and return immediately. Please note that this does NOT force the
+telnet or console session into non-blocking mode (CBREAK mode in curses.h).
 
 eg: nonblock "STDIN"
     printnl "Enter data> "
@@ -819,7 +844,7 @@ majority of applications this should not be a problem. Supported escape
 codes are: \n \r \b \f \t \v and \a. Also \" will allow quotes to be printed
 in strings.
 
-eg: print [format "\aName: \"%-20s\", Total: %03d\n" name [add tot1 tot2]]
+eg: print [format "\aName: \"%-20s\", Total: %03d\n" name [math tot1+tot2]]
 
 -------------------------------------------------------------------------------
 

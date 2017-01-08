@@ -3,7 +3,7 @@
 # be loaded. A more complex version of this could be used to pass processes
 # between Avios servers.
 
-&stdalias
+&stdalias.inc
 
 proc main argc argv
 var pid line prog err

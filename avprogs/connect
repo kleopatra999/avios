@@ -1,14 +1,11 @@
-# This demonstrates how to use the connect command. This program will connect
-# to your local sendmail server and you can talk to it using SMTP. It spawns
-# a copy of itself so that the parent can sping reading data in from the 
-# server and printing it on screen whilst the child can read data from the
-# keyboard and send it to the server.
+# This demonstrates how to use the connect command. 
 
 proc main
-var line pid sock
+var line pid sock fd
 
 colour off
-set sock [connect "localhost" 25]
+set sock [connect "localhost" 21]
+set fd [open to write "/dev/tty"]
 
 spawn pid
 if pid

@@ -3,7 +3,7 @@
 # A simple networked game like this wouldn't be worth the effort of writing 
 # in C but in Avios its simple, just give it a port to run on in the init file.
 
-&stdalias
+&stdalias.inc
 
 var @board pcnt cwon pwon
 var @winlines @order @pieces
@@ -33,7 +33,6 @@ while TRUE
 	else
 		printnl "~FTYou start..."
 	endif
-	sleep 1
 
 	# Mainloop
 	call display_board
@@ -56,14 +55,12 @@ endproc
 proc display_board
 var h i j el
 
-print "~CL"
-
 # Go through positions
 for h 1 to 7 step 3
 	# Go through pieces array
 	for i 1 to 4
 		# Go through positions on line
-		for j h to [add h 2]
+		for j h to [math h+2]
 			if board#j="O"; print [elements pieces#i 1]; endif
 			if board#j="X"; print [elements pieces#i 2]; endif
 			if board#j="."
@@ -173,7 +170,7 @@ endproc
 #--- Place a piece for the computer ---
 proc place_piece pos
 set board:pos "X"
-printnl "~FGMy move: " pos
+print [format "~FGMy move: ~FM%s\n\n" pos]
 endproc
 
 

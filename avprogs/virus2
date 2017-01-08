@@ -14,11 +14,11 @@ while 1
 		set cnt [count v]
 
 		# Get program line number
-		set pln2 [elements v [sub cnt 2]]
+		set pln2 [elements v [math cnt-2]]
 		if pln!=pln2; printnl; endif
 
 		# Write out program text only.
-		print [elements v 1 [sub cnt 3]] " "
+		print [elements v 1 [math cnt-3]] " "
 		set pln pln2
 	nexteach
 	printnl

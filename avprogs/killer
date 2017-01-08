@@ -1,7 +1,7 @@
 # This is an example program used by sendprog. It will kill any talkclient
 # program started up (as long as kill_any init option is YES)
 
-&stdalias
+&stdalias.inc
 
 proc main
 var pid name status

@@ -9,9 +9,10 @@
 # time.
 #
 
-#-------------- Set up the aliases -------------
+&stdalias.inc
+&stdprocs.inc
 
-&stdalias
+#-------------- Set up the aliases -------------
 
 alias 20 MAX_LINES
 alias "talkclient" TALKC
@@ -45,7 +46,7 @@ in "MESG_Q"
 while TRUE
 	while $mesg_cnt
 		input pid line 
-		if $pcs:pid!=TALKC; continue; endif
+		if $pcs:pid!=TALKC; continue; fi
 
 		### Check data type
 		set word [head line]
@@ -56,22 +57,22 @@ while TRUE
 				call write_user pid [format "\nYou are already logged on, killing other session...\n\n"]
 				call write_user username?name "EXIT"
 				set room userroom:username?name
-				call set_roomdata room 3 [sub [elements roomdata:room 3] 1]
-			endif
+				call set_roomdata room 3 [math [elements roomdata:room 3]-1]
+			fi
 			set username:pid name	
 			set userdesc:pid [tail [tail line]]
 			set userroom:pid "hallway"
 			set userlines:pid 0
-			call set_roomdata "hallway" 3 [add [elements roomdata:"hallway" 3] 1]
+			call set_roomdata "hallway" 3 [math [elements roomdata:"hallway" 3]+1]
 			call exec_com pid "look"
 			call write_room "" pid [format "%s enters this world." name] 
 			break
 
 			value "SAY"
 			if [set mesg [tail line]]=""
-				if userlines:pid; call exec_com pid "read"; endif
+				if userlines:pid; call exec_com pid "read"; fi
 				break
-			endif
+			fi
 			call write_user pid [format "You say: %s" mesg]
 			call write_user pid "PRM"
 			call write_room userroom:pid pid [format "%s says: %s" username:pid mesg] 
@@ -98,7 +99,7 @@ foreach room val in roomdata
 		while [not $eof]; inc cnt; input line; wend
 		close fd
 		call set_roomdata room 2 cnt
-	endif
+	fi
 nexteach
 endproc
 
@@ -112,15 +113,8 @@ endproc
 
 #---- Send a message to a users process ----
 proc write_user pid mesg
-var status
-
-# Don't interrupt if image, exiting or halted. If image then we've
-# got problems elsewhere in this code as this should never be true
-if [set status [elements [pcsinfo pid] 8]]!="IMAGE" and \
-   status!="EXITING" and \
-   status!="HALTED"
-	while [not [interrupt pid with mesg]]; wend
-endif
+# Call standard lib routine
+call _loop_interrupt pid mesg
 endproc
 
 
@@ -133,10 +127,11 @@ var pid prog rm
 foreach pid prog in $pcs
 	if prog!=TALKC or pid=except_pid or [elements [pcsinfo pid] 8]="IMAGE"
 		continue
-	endif
-	if [trap [set rm userroom:pid]]!=OK; continue; endif
-	if rm!=room and room!=""; continue; endif
-	call write_user pid mesg
+	fi
+	if [trap [set rm userroom:pid]]!=OK; continue; fi
+	if rm=room or room=""
+		call write_user pid mesg
+	fi
 nexteach
 endproc
 
@@ -148,12 +143,12 @@ var s v
 
 # Match whole name
 foreach s v in roomdesc
-	if s=name; return s; endif
+	if s=name; return s; fi
 nexteach
 
 # Match partial name
 foreach s v in roomdesc
-	if [instr s name 1]=1; return s; endif
+	if [instr s name 1]=1; return s; fi
 nexteach
 endproc
 
@@ -163,18 +158,18 @@ endproc
 proc deathproc
 var pid s v room
 
-if [tail $int_mesg]!="DEAD"; return; endif
+if [tail $int_mesg]!="DEAD"; return; fi
 set pid [head $int_mesg]
 foreach s v in username
 	if s=pid 
 		call write_room "" pid [format "%s leaves this world." username:pid]
 		set room userroom:pid
-		call set_roomdata room 3 [sub [elements roomdata:room 3] 1]
+		call set_roomdata room 3 [math [elements roomdata:room 3]-1]
 		set username:pid ""
 		set userdesc:pid ""
 		set userroom:pid ""
 		return
-	endif
+	fi
 nexteach
 endproc
 
@@ -188,9 +183,9 @@ set com [head line]
 
 if [not [member commands com]]
 	foreach s c in commands
-		if [instr c com 1]=1; set com c; break; endif
+		if [instr c com 1]=1; set com c; break; fi
 	nexteach
-endif
+fi
 
 choose com
 	value "who";   call com_who pid;  break
@@ -210,7 +205,7 @@ choose com
 	call write_user pid "Unknown command."
 chosen
 
-if userlines:pid; return; endif
+if userlines:pid; return; fi
 call write_user pid "PRM"
 endproc
 
@@ -224,7 +219,7 @@ call write_user pid [format "\n~BB*** Current users at %s ***\n" [gettime time]]
 foreach pid2 name in username
 	if name!=""
 		call write_user pid [format "%s %s" name userdesc:pid2] 
-	endif
+	fi
 nexteach
 call write_user pid ""
 endproc
@@ -244,7 +239,7 @@ call write_user pid [format roomdesc:uroom]
 set a roomlinks:uroom
 foreach s r in a
 	if [head roomdata:r]; set str [addstr str "~FR" r " "]
-	else; set str [addstr str "~FG" r " "]; endif
+	else; set str [addstr str "~FG" r " "]; fi
 nexteach
 call write_user pid [format "~FTExits are: %s\n" str]
 
@@ -254,21 +249,21 @@ foreach pid2 name in username
 		if cnt=0 
 			call write_user pid "~FTYou can see:~RS"
 			inc cnt
-		endif
+		fi
 		call write_user pid [format "    %s %s\n" username:pid2 userdesc:pid2]
-	endif
+	fi
 nexteach
 
-if cnt=0; call write_user pid [format "~FTYou are all alone here.\n"]; endif
+if cnt=0; call write_user pid [format "~FTYou are all alone here.\n"]; fi
 
-set priv [add [head roomdata:uroom] 1]
+set priv [math [head roomdata:uroom]+1]
 set str [addstr "Access is currently " pubpriv#priv " and there are ~FM~OL" \
         [elements roomdata:uroom 2] "~RS messages on the board."]
 call write_user pid str
 
 if roomtopic:uroom=""; call write_user pid "There is no current topic."
 else; call write_user pid [format "The topic is: %s" roomtopic:uroom]
-endif
+fi
 
 endproc
 
@@ -282,18 +277,18 @@ set uroom userroom:pid
 set name username:pid
 if newroom=""
 	call write_user pid "Go where?";  return
-endif
+fi
 call room_exists newroom
 if $result=""
 	call write_user pid "There is no such room.";  return
 else; set newroom $result
-endif
+fi
 if [not [member roomlinks:uroom newroom]]
 	call write_user pid "You can't get there from here.";  return
-endif
+fi
 if [head roomdata:newroom]
 	call write_user pid "That room is currently private.";  return
-endif
+fi
 call write_room newroom pid [format "%s enters from the %s." name uroom]
 set userroom:pid newroom	
 call write_room uroom pid [format "%s goes to the %s." name newroom]
@@ -308,23 +303,23 @@ var infd outfd line
 
 if desc=""
 	call write_user pid "You must give a description.";  return;
-endif
+fi
 
 if [trap [set infd [open to read PASSFILE]]]
 	call write_user pid SYSERROR;  return
-endif
+fi
 
 if [trap [set outfd [open to write "temp"]]]
 	call write_user pid SYSERROR;  
 	close infd;  return
-endif
+fi
 
 in infd; out outfd
 input line
 while [not $eof]
 	if [elements line 2]=username:pid
 		printnl [elements line 1 2] " " desc
-	else; printnl line; endif
+	else; printnl line; fi
 	input line
 wend
 close infd outfd
@@ -343,18 +338,18 @@ var name
 
 if [count line]<2
 	call write_user pid "Tell who what?";   return
-endif
+fi
 
 set name [head line]
 set name [overstr name [upperstr [midstr name 1]] 1]
 if name=username:pid
 	call write_user pid "Talking to yourself is the first sign of madness!"
 	return
-endif
+fi
 
 if username?name=""
 	call write_user pid "There is no such user.";  return
-endif
+fi
 
 call write_user pid [format "You tell %s: %s" name [tail line]]
 call write_user username?name [format "~OL%s tells you:~RS %s" username:pid [tail line]]
@@ -366,7 +361,7 @@ endproc
 proc com_shout pid mesg
 if mesg=""
 	call write_user pid "Shout what?";  return
-endif
+fi
 call write_user pid [format "You shout: %s" mesg]
 call write_room "" pid [format "~OL%s shouts:~RS %s" username:pid mesg]
 endproc
@@ -377,7 +372,7 @@ endproc
 proc com_topic pid topic
 if topic=""
 	call write_user pid "You must give a topic.";  return
-endif
+fi
 call write_user pid [format "Topic set to: %s" topic]
 call write_room userroom:pid pid [format "%s has set the topic to: %s" username:pid topic]
 set roomtopic:userroom:pid topic
@@ -392,12 +387,12 @@ var fd line lcnt pcnt room
 set room userroom:pid
 if [trap [set fd [open to read [format "%s/%s.B" DATADIR room]]]]
 	call write_user pid "There are no messages on the board.";  return
-endif
+fi
 
 call write_room room pid [format "%s reads the message board." username:pid]
 if userlines:pid=0
 	call write_user pid [format "\n~BB*** The %s message board ***\n" room]
-endif
+fi
 
 # Read through file
 in fd
@@ -409,7 +404,7 @@ while [not $eof] and pcnt<MAX_LINES
 	if lcnt>userlines:pid
 		call write_user pid line
 		inc pcnt
-	endif
+	fi
 wend
 close fd
 in "MESG_Q"
@@ -417,7 +412,7 @@ if $eof; set userlines:pid 0
 else
 	set userlines:pid lcnt
 	call write_user pid "~RV*** Press any key to continue ***"
-endif
+fi
 endproc
 
 
@@ -428,19 +423,19 @@ var fd room board cnt
 
 if mesg=""
 	call write_user pid "Write what?";  return
-endif
+fi
 
 set room userroom:pid
 if [trap [set fd [open to append [format "%s/%s.B" DATADIR room]]]]
 	call write_user pid SYSERROR;  return
-endif
+fi
 out fd
 printnl [format "~FT[%s, %s]: ~RS~OL%s:~RS %s" [gettime date] [gettime time] username:pid mesg]
 close fd
 out "STDOUT"
 call write_user pid "You write the message on the board."
 call write_room room pid [format "%s writes a message on the board." username:pid]
-set cnt [add [elements roomdata:room 2] 1]
+set cnt [math [elements roomdata:room 2]+1]
 call set_roomdata room 2 cnt
 endproc
 
@@ -456,21 +451,21 @@ set priv [head roomdata:room]
 if com="private"
 	if priv
 		call write_user pid "The room is already private.";  return
-	endif
+	fi
 	set cnt [elements roomdata:room 3]
 	if cnt<2
 		call write_user pid "You need at least 2 people to make a room private."
 		return
-	endif
+	fi
 	call write_user pid "Room set to ~FRPRIVATE."
 	call write_room room pid [format "%s has set the room to ~FRPRIVATE." username:pid]
 	call set_roomdata room 1 1
 	return
-endif
+fi
 
 if [not priv]
 	call write_user pid "The room is already public.";  return
-endif
+fi
 call write_user pid "Room set to ~FGPUBLIC."
 call write_room room pid [format "%s has set the room to ~FGPUBLIC." username:pid]
 call set_roomdata room 1 0
@@ -485,11 +480,13 @@ var i str
 call write_user pid [format "\n~BB*** Commands ***\n"]
 for i 1 to [count commands] 
 	set str [addstr str [format "%-10s " [elements commands i]]]
-	if [mod i 5]=0
+	if [math i%5]=0
 		call write_user pid str;  set str ""
-	endif
+	fi
 next
-if str!="";  call write_user pid str;  endif
+if str!=""
+	call write_user pid str
+fi
 call write_user pid [format "\n~FGRemember all commands start with a '.'\n"]
 endproc
 

@@ -1,0 +1,64 @@
+# Xmas prog
+
+proc main
+var song timing word pos spc i
+
+set song "\
+We wish you a Merry Christ- mas \n \
+We wish you a Merry Christ- mas \n \
+We wish you a Merry Christ- mas and a Hap- py New Year \n \
+Good tidings we bring, to you and your King \n \
+We wish you a Merry Christ- mas and a Hap- py New Year"
+
+set timing "\
+3 3 3 2 3 3 4 0 \
+3 3 3 2 3 3 4 0 \
+3 3 3 3 3 2 2 2 1 3 3 3 8 0 \
+3 3 3 7 3 3 3 3 4 0 \
+3 3 3 3 3 2 2 2 1 3 3 3 0 0"
+
+print "~CL"
+
+#-- Do song
+for pos 1 to [count song]
+	set word [elements song pos]
+	if word="\n"; printnl; else; print word " "; fi
+	usleep [mul 100000 [elements timing pos]]
+next
+sleep 2
+
+#-- Print snowman
+printnl
+printnl
+printnl "                           .-~~\ "
+printnl "                          /     \_"
+printnl "                         ~x   .-~_)_"
+printnl "                           ~x .-~   ~-."
+printnl "                       _   ( /         \   _"
+printnl "                       ||   T  o  o     Y  ||"
+printnl "                     ==:l   l   <       !  I;=="
+printnl "                        \\   \  .__/   /  //"
+printnl "                         \\ ,r -,___.-'r.//"
+printnl "                          }^ \.( )   _.'//."
+printnl "                         /    }~Xi--~  //  \ "
+printnl "                        Y    Y I\ \    '    Y"
+printnl "                        |    | |o\ \        |"
+printnl "                        |    l_l  Y T       | "
+printnl "                        l       o l_j       !"
+printnl "                         \                 /"
+printnl "                  ___,.---^.     o       .^---.._____"
+printnl "               ~~~          .           .            ~~~"
+printnl
+
+for spc 1 to 50 
+	print [mulstr " " spc]
+	print [format "~LI~RV*** MERRY CHRISTMAS!!! ***\r"]
+	usleep 50000
+next
+for spc 49 to 22
+	print [mulstr " " spc]
+	print [format "~LI~RV*** MERRY CHRISTMAS!!! ***~RS \r"]
+	usleep 50000
+next
+print [format "\n\nBrought to you by Cheap 'n' Cheesy Productions Plc\n\n"]
+endproc

@@ -1,14 +1,14 @@
 
-                              *** VERSIONS ***
+                          *** CHANGELOG ***
 
 The Avios version number consists of 3 fields: The major , minor and patch
-levels. eg: 1.4.0 , means major version 1, minor version 4 and patch level
+levels. eg: 1.5.0 , means major version 1, minor version 5 and patch level
 0. If a small bug fix or some minor change has been done to the code then
 I'll up the patch level. If new features have been added or old ones changed
 drastically then I'll up the minor version number. If however the code has had
 a complete rewrite then I'll up the major version number.
 
-Versions relased so far (and the release date):
+Versions relased so far (and the release date in DD/MM/YY format):
 
 1.0.0 (Release date: 11/8/97)
    Initial release.
@@ -69,7 +69,7 @@ Versions relased so far (and the release date):
        command now returns different values too) which required adding the
        HALTED process state.
  - Added acontinue (alternative continue) command which behaves differently to 
-       continue command inside a choose structure. See DOCS/commands.
+       continue command inside a choose - chosen block. See DOCS/commands.
  - Added "fi" command as an alternative to "endif".
  - Added enhanced_dump init file option will if YES will cause status dump to
        contain more process statistics.
@@ -82,6 +82,15 @@ Versions relased so far (and the release date):
  - Made write_syslog a variadic function removing the need for sprintf(text etc
  - AviosPL command words can now be in capitals in programs.
  - Fixed bug in continue relating to do-until loop (loop would never exit if
-       continue refering to said loop was used within it)
+       a continue refering to said loop was used within it)
  - Minor miscellanious code mods.
 
+1.5.0 (18/1/98)
+ - Added math command and because of this I removed all other maths commands
+       ie add, sub, mul, div, mod, bwa, bwo, bwx, bsl, bsr as they are 
+       redundant.
+ - Added locate & cls commands.
+ - Fixed omission in get_variable (negating variables wasn't supported 
+       eg: printnl -x)
+ - Fixed bug in com_echo() (Telopt sequence being sent down wrong stream)
+ - Minor miscellanious code changes.

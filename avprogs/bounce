@@ -1,0 +1,46 @@
+# Bounce a ball around a coloured box
+
+proc main
+var x y ox oy addx addy
+var ballcol
+
+# Draw box 
+cls
+locate 30 5; print [format "~FG%s" [mulstr "#" 20]]
+locate 30 15; print [format "~FB%s" [mulstr "#" 20]]
+for y 5 to 15
+	locate 30 y; print "~FR#"
+	locate 50 y; print "~FY#"
+next
+
+# Set vars
+set x 40
+set y 10
+set ox 40 
+set oy 10
+set addx 1
+set addy 1
+
+# Bounce the ball
+while 1
+	locate ox oy; print " "
+	locate x y; print [format "%sO" ballcol]
+
+	set ox x
+	set oy y
+	inc x addx
+	inc y addy
+
+	if x=31 or x=49
+		set addx -addx
+		if x=31; set ballcol "~FR"; else; set ballcol "~FY"; fi
+	fi
+
+	if y=6 or y=14
+		set addy -addy
+		if y=6; set ballcol "~FG"; else; set ballcol "~FB"; fi
+	fi
+
+	usleep 100000
+wend
+endproc

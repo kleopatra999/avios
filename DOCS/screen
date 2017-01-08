@@ -1,5 +1,5 @@
 
-                  *** COLOUR (and other screen stuff) ***
+                         *** THE SCREEN ***
 
 Avios supports Ansi colour codes (the same ones as the NUTS talker system)
 and so can be used to send coloured messages to people using telnet clients
@@ -23,7 +23,7 @@ OL - bold
 LI - blink/flash text (only the text flashes , not the background colour). 
 	This won't work on all terminals , some xterms simply set it to bold.
 UL - underline text, this doesn't work on all terminals.
-CL - Clear screen. 
+CL - Clear screen. (Does same as cls command)
 
 FK - set foreground colour to black
 FR - foreground red
@@ -72,3 +72,7 @@ Not everyones terminal supports ANSI colour codes. It'll either ignore
 them or will produce some very strange effects. Bear this in mind if you
 decide to set the user colour default to ON.
 
+
+In  1.5.0 I have added the locate command which will (for vt and ansi
+terminals) place the cursor at the given co-ordinates. See the commands
+documentation for more details or the bounce program in avprogs.

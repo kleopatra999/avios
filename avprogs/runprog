@@ -3,7 +3,7 @@
 # orphan in the background. It'll continue doing this until the remote
 # process disconnects. Sendprog is the program that sends them.
 
-&stdalias
+&stdalias.inc
 
 proc main
 var line prog pid err

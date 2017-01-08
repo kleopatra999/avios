@@ -1,7 +1,12 @@
 # A simple clock
 proc main
 while 1
-	print [format "%s, %d %s %d, %s\r" [gettime dayname] [gettime mday] [gettime monthname] [gettime year] [gettime time]]
+	print [format "~FY%s, ~FG%d %s %d, ~FT%s\r" \
+	              [gettime dayname] \
+	              [gettime mday] \
+	              [gettime monthname] \
+	              [gettime year] \
+	              [gettime time]] \
 
 	# Beep if we're on the 15 minutes.
 	if [gettime secs]=0 and [member "0 15 30 45" [gettime mins]]

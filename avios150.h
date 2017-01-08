@@ -1,6 +1,6 @@
 /******************************************************************************
-                           AVIOS 1.4.0 header file
-                      Copyright (C) Neil Robertson 1997
+                           AVIOS 1.5.0 header file
+                   Copyright (C) Neil Robertson 1997-1998
  ******************************************************************************/
 
 #define INIT_FILE "init"
@@ -12,8 +12,8 @@
 
 #define MAX_INCLUDE_LEVELS 10
 #define MEMORY_RESERVE 500
-#define NUM_COMS 135
-#define NUM_ERRS 60
+#define NUM_COMS 128
+#define NUM_ERRS 63
 #define NUM_COLS 22
 #define ARR_SIZE 5000
 #define MAX_ARGC 100
@@ -21,6 +21,7 @@
 #define MAX_PROCESSES 100
 #define MAX_MESGS 20
 #define MAX_ERRORS 1
+#define MAX_EQUA_ELEMENTS 100
 #define SWAPOUT_AFTER 10  /* Max no. instructions run before process swapout */
 #define EXIT_REMAIN 5
 
@@ -158,7 +159,17 @@ struct program {
 	char *word,*filename;
 	int real_line,prog_line;
 	int op_num,com_num,end_pos;
+	struct equa_struct *equa;
+	int equacnt;
 	} *prog_word; 
+
+/* Used by the math command */
+struct equa_struct {
+        char *word;
+        int value;
+        char op;
+        int pc,used;
+        };
 
 /* Procedure data */
 struct procedures {
@@ -219,8 +230,8 @@ struct result_stack {
 
 /* Forward declaration of command functions */
 int com_alias(),com_var(),com_sharing(),com_stid(),com_maths1(),com_replace();
-int com_strings2(),com_strings3(),com_mathsv(),com_shift();
-int com_goto(),com_label();
+int com_strings2(),com_strings3(),com_vararg();
+int com_locate(),com_cls(),com_goto(),com_label();
 int com_if(),com_else(),com_endif(),com_while(),com_wend_next();
 int com_do(),com_until(),com_for(),com_foreach();
 int com_choose(),com_val_def(),com_chosen(),com_break(),com_continue();
@@ -229,7 +240,7 @@ int com_input(),com_strings1(),com_count(),com_arrsize(),com_trap();
 int com_streams(),com_open(),com_cdr(),com_seek(),com_dir();
 int com_format(),com_spawn(),com_wait(),com_waitpid(),com_procs(),com_exec();
 int com_onint(),com_interrupt(),com_timer(),com_ei_di(),com_gettime();
-int com_colour(),com_connect(),com_echo();
+int com_colour(),com_connect(),com_echo(),com_math();
 
 /* Commands structure. Arg_pass is used to see which args to pass when
    calling function pointer */
@@ -251,35 +262,29 @@ struct {
 		"inc", PCV,com_stid,
 		"dec", PCV,com_stid,
 
+		"math",PCV,com_math,
+
 		"not", PCV,com_maths1,
 		"abs", PCV,com_maths1,
 		"sgn", PCV,com_maths1,
 		"rand",PCV,com_maths1,
 		"cpl", PCV,com_maths1,
 
-		"bsl",PCV,com_shift,
-		"bsr",PCV,com_shift,
-
 		"mulstr",  PCV,com_strings2,
 		"substr",  PCV,com_strings3,
-		"addstr",  PCV,com_mathsv,
-		"add",     PCV,com_mathsv,
-		"sub",     PCV,com_mathsv,
-		"mul",     PCV,com_mathsv,
-		"div",     PCV,com_mathsv,
-		"mod",     PCV,com_mathsv,
-		"bwa",     PCV,com_mathsv,
-		"bwo",     PCV,com_mathsv,
-		"bwx",     PCV,com_mathsv,
-		"atoc",    PCV,com_mathsv,
-		"ctoa",    PCV,com_mathsv,
-		"max",     PCV,com_mathsv,
-		"min",     PCV,com_mathsv,
-		"maxstr",  PCV,com_mathsv,
-		"minstr",  PCV,com_mathsv,
-		"print",   PCV,com_mathsv,
-		"printnl", PCV,com_mathsv,
-		"printlog",PCV,com_mathsv,
+		"addstr",  PCV,com_vararg,
+		"atoc",    PCV,com_vararg,
+		"ctoa",    PCV,com_vararg,
+		"max",     PCV,com_vararg,
+		"min",     PCV,com_vararg,
+		"maxstr",  PCV,com_vararg,
+		"minstr",  PCV,com_vararg,
+		"print",   PCV,com_vararg,
+		"printnl", PCV,com_vararg,
+		"printlog",PCV,com_vararg,
+
+		"locate",PCV,com_locate,
+		"cls"   ,PCV,com_cls,
 
 		"goto", PCA,com_goto,
 		"label",PCA,com_label,
@@ -417,24 +422,15 @@ enum command_vals {
 	TSET,
 	INC,
 	DEC,
+	MATH,
 	NOTCOM,
 	ABS,
 	SGN,
 	RAND,
 	CPL,
-	BSL,
-	BSR,
 	MULSTR,
 	SUBSTR,
 	ADDSTR,
-	ADD,
-	SUB,
-	MUL,
-	DIV,
-	MOD,
-	BWA,
-	BWO,
-	BWX,
 	ATOC,
 	CTOA,
 	MAXCOM,
@@ -444,6 +440,8 @@ enum command_vals {
 	PRINT,
 	PRINTNL,
 	PRINTLOG,
+	LOCATE,
+	CLS,
 	GOTO,
 	LABEL,
 	IF,
@@ -591,6 +589,7 @@ char *error_mesg[NUM_ERRS]={
 	"Variable is not shared",
 	"Variable cannot be shared",
 	"Local variables cannot be shared",
+	"Cannot negate a non numeric value",
 	"Unexpected command",
 	"Unterminated loop",
 	"Duplicate label",
@@ -622,7 +621,9 @@ char *error_mesg[NUM_ERRS]={
 	"Cannot stat device",
 	"Device is not a character device",
 	"Cannot open device",
-	"String too long"
+	"String too long",
+	"Equation too complex",
+	"Division by zero"
 	};
 
 
@@ -655,6 +656,7 @@ enum error_codes {
 	ERR_VAR_NOT_SHARED,
 	ERR_VAR_SHARE1,
 	ERR_VAR_SHARE2,
+	ERR_CANNOT_NEGATE,
 	ERR_UNEXPECTED_COMMAND,
 	ERR_UNTERMINATED_LOOP,
 	ERR_DUPLICATE_LABEL,
@@ -686,7 +688,9 @@ enum error_codes {
 	ERR_CANT_STAT_DEVICE,
 	ERR_DEVICE_NOT_CHAR,
 	ERR_CANT_OPEN_DEVICE,
-	ERR_STRING_TOO_LONG	
+	ERR_STRING_TOO_LONG,
+	ERR_EQUATION_TOO_COMPLEX,
+	ERR_DIVISION_BY_ZERO
 	};
 
 char *colcode[NUM_COLS]={

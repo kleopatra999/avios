@@ -1,11 +1,11 @@
 /****************************************************************************
-                            AVIOS version 1.4.0
-         A VIrtual Operating System, Copyright (C) Neil Robertson 1997
+                           AVIOS version 1.5.0
+      A VIrtual Operating System, Copyright (C) Neil Robertson 1997-1998
 
-                     Version date: 3rd December 1997
+                     Version date: 19th January 1998
 
  Created out of blood and sweat using incantations of the C after dusk and 
- in dark dungeons found in London, England from January to December 1997. 
+ in dark dungeons found in London, England from January 1997 to January 1998.
 
  Please read the README & COPYRIGHT files.
 
@@ -41,9 +41,9 @@
 #include <pwd.h>
 #include <errno.h>
 
-#include "avios140.h"
+#include "avios150.h"
 
-#define VERSION "1.4.0"
+#define VERSION "1.5.0"
 
 struct streams *get_stream();
 int write_syslog(char *, ...);
@@ -151,7 +151,7 @@ for(i=1;i<argc;++i) {
 	if (!strcmp(argv[i],"-v")) {  printf("%s\n",VERSION);  exit(0);  }
 	if (!strcmp(argv[i],"-h")) {
 		printf("\nAVIOS version %s\n",VERSION);
-		printf("Copyright (C) Neil Robertson 1997\n\n"); 
+		printf("Copyright (C) Neil Robertson 1997/1998\n\n"); 
 		printf(usage,argv[0]);
 		puts("\n-i: Set the initalisation file (default is 'init').");
 		puts("-s: Set the system log file (default is standard output).");
@@ -444,25 +444,22 @@ waffle()
 {
 char *data="\
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\
-+++!Bwjpt!2/5/1-!Dpqzsjhiu!)D*!Ofjm!Spcfsutpo!2::8!+++!!!!!!!!!!!!!Uij\
-t!jt!Bwjpt-!B!WJsuvbm!Pqfsbujoh!Tztufn!eftjhofe!up!svo!po!upq!pg!Vojy!\
-boe!qspwjef!b!tjnqmf!xbz!up!xsjuf!UDQ!tfswfs!qsphsbnt!)boe!opx!bmtp!ep\
-ft!uif!tbnf!gps!uuz!efwjdft*/!Ju!xbt!xsjuufo!cz!nf!)Ofjm!Spcfsutpo*!gs\
-pn!Kbovbsz!up!Efdfncfs!2::8!nbjomz!up!qspwf!up!nztfmg!uibu!J!dpvme!xsj\
-uf!tpnfuijoh!mjlf!uijt!cvu!bmtp!up!gjmm!jo!uif!ujnf!cfuxffo!evmm!qspkf\
-du!bttjhonfout!bu!xpsl!;*/!Gps!uiptf!pg!zpv!xip!ibwf!vtfe!qsfwjpvt!wfs\
-tjpot!boe!bsf!xpoefsjoh!xibut!ibqqfofe!up!uif!tupsz!uibu!vtvbmmz!bqqfb\
-st!jo!uijt!fbtufs!fhh!-!xfmm!-!fsss!-!J!sbo!pvu!pg!jefbt!tp!J!foefe!ju\
-!jo!2/4/1/!Ifodf!zpv(sf!hfuujoh!uijt!xbggmf!jotufbe!;*/!Guq!tjuft!gps!\
-uijt!tpguxbsf!bsf!dvssfoumz!guq/ddt/ofv/fev0qvc0nve0tfswfst0njtd0bwjpt\
-!boe!guq/efnpo/dp/vl0qvc0vojy0njtd0bwjpt/!Jg!zpv!ibwf!boz!ojdf!uijoht!\
-up!tbz!bcpvu!uijt!tztufn!qmfbtf!fnbjm!nf!bu!ofjmAphibn/efnpo/dp/vl!cvu\
-!jg!zpv!ibwf!boz!obtuz!uijoht!up!tbz!zpv!dbo!hp!tipwf!(fn!;*!Uibolt!nv\
-tu!hp!up!uif!mbet!bu!xpsl!xip!usjfe!pvu!nz!Bwjpt!uftu!qsphsbn!jodmvejo\
-h!Cpccz-!Sjdibse-!Nbsujo!boe!Kfbo!boe!bozpof!pvu!uifsf!jo!ofu!mboe!xip\
-!vtft!uijt!tztufn/!Bozxbz!-!mbdljoh!boznpsf!tvjubcmf!jotqjsbujpo!J(n!h\
-pjoh!up!rvju!opx!xijmf!J(n!bifbe/!Fokpz/!;*!!!!!!!!!!!!!!!!!!!!!!!!!!!\
-!!!!!!!!!!!!!/////";
++++!Bwjpt!2/6/1-!Dpqzsjhiu!)D*!Ofjm!Spcfsutpo!2::8.2::9!+++!!!!!!!!!!!\
+!!Uijt!jt!Bwjpt-!B!WJsuvbm!Pqfsbujoh!Tztufn!eftjhofe!up!svo!po!upq!pg!\
+Vojy!boe!qspwjef!b!tjnqmf!xbz!up!xsjuf!UDQ!tfswfs!qsphsbnt!)boe!opx!bm\
+tp!epft!uif!tbnf!gps!uuz!efwjdft*/!Ju!xbt!xsjuufo!cz!nf!)Ofjm!Spcfsutp\
+o*!gspn!Kbovbsz!2::8!up!Kbovbsz!2::9!nbjomz!up!qspwf!up!nztfmg!uibu!J!\
+dpvme!xsjuf!tpnfuijoh!mjlf!uijt!cvu!bmtp!up!gjmm!jo!uif!ujnf!cfuxffo!e\
+vmm!qspkfdu!bttjhonfout!bu!xpsl!;*/!Guq!tjuft!gps!uijt!tpguxbsf!bsf!dv\
+ssfoumz!guq/ddt/ofv/fev0qvc0nve0tfswfst0njtd0bwjpt!boe!guq/efnpo/dp/vl\
+0qvc0vojy0njtd0bwjpt/!Jg!zpv!ibwf!boz!dpotusvdujwf!dpnnfout!bcpvu!uijt\
+!tztufn!qmfbtf!fnbjm!nf!bu!ofjmAphibn/efnpo/dp/vl!cvu!jg!zpv!tjnqmz!xb\
+ou!up!gmbnf!nf!bcpvu!tpnfuijoh!zpv!epo(u!mjlf!uifo!zpv!dbo!kvtu!hp!gvd\
+l!zpvstfmg/!Uibolt!nvtu!hp!up!uif!mbet!bu!xpsl!xip!usjfe!pvu!nz!Bwjpt!\
+uftu!qsphsbnt!jodmvejoh!Cpccz-!Sjdibse-!Nbsujo-!Kfbo!boe!Nbsl!boe!bozp\
+of!pvu!uifsf!jo!ofu!mboe!xip!vtft!uijt!tztufn/!Bozxbz!-!mbdljoh!boznps\
+f!tvjubcmf!jotqjsbujpo!J(n!hpjoh!up!rvju!opx!xijmf!J(n!bifbe/!Fokpz/!;\
+*!/////!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
 
 char *sptr,*cptr,*ptr;
 int spaces,i;
@@ -1330,6 +1327,10 @@ for(w=0;w<par->num_words;++w) {
 	set_string(&new->prog_word[w].word,par->prog_word[w].word);
 	new->prog_word[w].filename=NULL;
 	set_string(&new->prog_word[w].filename,par->prog_word[w].filename);
+
+	/* Don't copy any parsed equations. Not worth it. */
+	new->prog_word[w].equa=NULL;
+	new->prog_word[w].equacnt=0;
 	}
 
 
@@ -1766,7 +1767,7 @@ struct vars *vnext;
 struct array *arr,*arrnext;
 struct streams *st,*stnext;
 char pid[10];
-int w,int_type;
+int w,e,int_type;
 int hours,mins,secs;
 
 pcs=current_pcs;
@@ -1830,10 +1831,16 @@ FREE(pcs->site);
 FREE(pcs->input_buff);
 FREE(pcs->wait_var);
 
-/* Delete program text */
+/* Delete program text and any parsed equations */
 if (prog_word==NULL) return;
 for(w=0;w<num_words;++w) {
-	free(prog_word[w].word);  free(prog_word[w].filename);
+	free(prog_word[w].word);  
+	free(prog_word[w].filename);
+	if (prog_word[w].equacnt) {
+		for(e=0;e<prog_word[w].equacnt;++e) 
+			FREE(prog_word[w].equa[e].word);
+		free(prog_word[w].equa);
+		}
 	}
 free(prog_word);
 
@@ -2999,6 +3006,8 @@ while(1) {
 			set_string(&prog_word[word].word,text);
 			prog_word[word].filename=NULL;
 			set_string(&prog_word[word].filename,incst[ipos].filename);
+			prog_word[word].equa=NULL;
+			prog_word[word].equacnt=0;
 			prog_word[word].real_line=real_line;
 			prog_word[word].prog_line=prog_line;
 			prog_word[word].op_num=-1;
@@ -3027,6 +3036,8 @@ while(1) {
 			set_string(&prog_word[word].word,text);
 			prog_word[word].filename=NULL;
 			set_string(&prog_word[word].filename,incst[ipos].filename);
+			prog_word[word].equa=NULL;
+			prog_word[word].equacnt=0;
 			prog_word[word].real_line=real_line;
 			prog_word[word].prog_line=prog_line;
 			prog_word[word].op_num=-1;
@@ -3056,8 +3067,12 @@ while(1) {
 		sprintf(text,"%c",c);
 		prog_word[word].word=NULL;
 		set_string(&prog_word[word].word,text);
+
 		prog_word[word].filename=NULL;
 		set_string(&prog_word[word].filename,incst[ipos].filename);
+
+		prog_word[word].equa=NULL;
+		prog_word[word].equacnt=0;
 		prog_word[word].real_line=real_line;
 		prog_word[word].prog_line=prog_line;
 		prog_word[word].op_num=(int)strchr(opstr,c)-(int)opstr;
@@ -3104,6 +3119,8 @@ if (com_num!=IEXEC) fclose(incst[0].fp);
 /* Terminate array with dummy entry */
 prog_word[word].word=NULL;
 prog_word[word].filename=NULL;
+prog_word[word].equa=NULL;
+prog_word[word].equacnt=0;
 prog_word[word].com_num=-1;
 prog_word[word].op_num=-1;
 prog_word[word].real_line=0;
@@ -3343,7 +3360,7 @@ return OK;
 
 
 /*** Go through words and set aliases. If the alias command is in a proc then
-	only set them _within_ the procedure ***/
+     only set them _within_ the procedure ***/
 set_aliases(pc)
 int pc;
 {
@@ -3815,7 +3832,10 @@ int subint,cnt,len,ret;
 ret=-1;
 len=0;
 subint=-1;
-if (sub_type==1 && isinteger(subscript,0)) subint=atoi(subscript);
+if (isinteger(subscript,0)) {
+	if (sub_type!=1) return ERR_SYNTAX;
+	subint=atoi(subscript); 
+	}
 else {
 	/* Subscript is a quoted string */
 	if (*subscript=='"') {
@@ -3925,10 +3945,14 @@ struct procedures *proc;
 struct process *pcs,*old;
 struct vars *var;
 char *subscript,*tmp,*c,*start;
-int ret,name_len,sub_type,i,shared;
+int ret,name_len,sub_type,i,shared,neg;
 
 sub_type=0;
 subscript=NULL;
+
+/* See if we're wanting to negate return value (if number) */
+if (*name=='-') {  neg=1;  ++name;  }  else neg=0;
+
 name_len=strlen(name);
 
 /* See if we're accessing remote shared variable (make sure the dot is not
@@ -4022,11 +4046,15 @@ current_var=var;
 while(var->refvar!=NULL) var=var->refvar;
 
 if (subscript==NULL) {
-	if (var->flags & ARRAY) return get_array_as_list(var);
+	if (var->flags & ARRAY) {
+		if (neg) return ERR_CANNOT_NEGATE; /* Can't negate a list */
+		return get_array_as_list(var);
+		}
+	if (neg) return negate_string(var->value);
 	return push_rstack(var->value);
 	}
 if (!(var->flags & ARRAY)) return ERR_VAR_IS_NOT_ARRAY;
-return get_array(var,subscript,sub_type,proc);
+return get_array(var,subscript,sub_type,proc,neg);
 }
 
 
@@ -4058,11 +4086,11 @@ return OK;
      Sub_type: 0 = lookup by array subscript
                1 = lookup by index number (indexes start at 1 *not* 0)
                2 = reverse lookup by value ***/
-get_array(var,subscript,sub_type,proc)
+get_array(var,subscript,sub_type,proc,neg)
 struct vars *var;
 char *subscript;
 struct procedures *proc;
-int sub_type;
+int sub_type,neg;
 {
 struct array *arr;
 int subint,cnt,len,ret;
@@ -4071,7 +4099,10 @@ int subint,cnt,len,ret;
 ret=-1;
 len=0;
 subint=-1;
-if (sub_type && isinteger(subscript,0)) subint=atoi(subscript); 
+if (isinteger(subscript,0)) {
+	if (sub_type!=1) return ERR_SYNTAX;
+	subint=atoi(subscript); 
+	}
 else {
 	/* Subscript is a quoted string */
 	if (*subscript=='"') {
@@ -4103,25 +4134,50 @@ for(arr=var->arr;arr!=NULL;arr=arr->next) {
 	switch(sub_type) {
 		case 0: /* Normal lookup */
 		if (!strncmp(arr->subscript,subscript,len) &&
-		    strlen(arr->subscript)==len)
+		    strlen(arr->subscript)==len) {
+			if (neg) return negate_string(arr->value);
 			return push_rstack(arr->value); 
+			}
 		break;
 
 		case 1: /* Number lookup */
-		if (cnt==subint) return push_rstack(arr->value); 
+		if (cnt==subint) {
+			if (neg) return negate_string(arr->value);
+			return push_rstack(arr->value); 
+			}
 		break;
 
 		case 2: /* Reverse lookup */
 		if (arr->value!=NULL && 
 		    !strncmp(arr->value,subscript,len) &&
-		    strlen(arr->value)==len) 
+		    strlen(arr->value)==len) {
+			if (neg) return negate_string(arr->subscript);
 			return push_rstack(arr->subscript);
+			}
 		}
 	cnt++;
 	}
-if (sub_type==2) return push_rstack(NULL);
+if (sub_type==2) {
+	if (neg) return ERR_CANNOT_NEGATE;
+	return push_rstack(NULL);
+	}
 return ERR_UNDEF_SUBSCRIPT;
 }
+
+
+
+/*** Used by get_variable() and get_array() ***/
+negate_string(val)
+char *val;
+{
+int num;
+
+if (!isinteger(val,1)) return ERR_CANNOT_NEGATE;
+num=-atoi(val);
+sprintf(text2,"%d",num);
+return push_rstack(text2);
+}
+
 
 
 /*** Set up initial argc and argv parameters for start proc. Don't include
@@ -5030,6 +5086,374 @@ return ERR_INTERNAL;
 
 
 
+/*** This is the math command function. It solves simple maths equations. ***/
+com_math(com_num,pc)
+int com_num,pc;
+{
+struct equa_struct *es,equa[MAX_EQUA_ELEMENTS];
+int i,ret,equacnt,size,new;
+
+if (prog_word[pc].equa==NULL) {
+	new=1;
+
+	/* First time we've encountered this command */
+	if ((ret=parse_equation(pc,equa,&equacnt))!=OK) goto END;
+
+	/* Copy into process's own buffer */
+	size=sizeof(struct equa_struct);
+	if ((es=(struct equa_struct *)malloc(size*equacnt))==NULL) {
+		ret=ERR_MALLOC;  goto END;
+		}
+	for(i=0;i<equacnt;++i) {
+		memcpy(&es[i],&equa[i],size);
+		es[i].word=NULL;
+		set_string(&es[i].word,equa[i].word);
+		}	
+	prog_word[pc].equa=es;
+	prog_word[pc].equacnt=equacnt;
+	}
+else new=0;
+
+/* Get the values for variables and command calls as well as numbers in
+   the .word element to set the .value element. */
+if ((ret=get_equation_values(prog_word[pc].equa,prog_word[pc].equacnt))!=OK) 
+	goto END;
+
+/* Solve it */
+ret=evaluate_complete_equation(prog_word[pc].equa,prog_word[pc].equacnt);
+
+END:
+/* Tidy up */
+if (new) {
+	for(i=0;i<MAX_EQUA_ELEMENTS;++i) FREE(equa[i].word);
+	}
+for(i=0;i<prog_word[pc].equacnt;++i) {
+	prog_word[pc].equa[i].value=0;
+	prog_word[pc].equa[i].used=0;
+	}
+return ret;
+}
+
+
+
+/*** Parse the equation into the equa structure ***/
+parse_equation(pc,equa,ec)
+struct equa_struct *equa;
+int pc,*ec;
+{
+int equacnt,end,i,yes,brackets,in_string;
+char c,*s,*s2,*op;
+char *opstr="<>!=()+-*/%^&|~";
+
+end=prog_word[pc].end_pos;
+if (end - pc<1) return ERR_SYNTAX;
+
+/* Zero all the structures */
+for(i=0;i<MAX_EQUA_ELEMENTS;++i) {
+	equa[i].word=NULL;
+	equa[i].value=0;
+	equa[i].op='\0';
+	equa[i].pc=-1;
+	equa[i].used=0;
+	}
+++pc;
+equacnt=0;
+brackets=0;
+
+/* Loop through all the words passed to command, parse them and store in 
+   structure */
+for(;pc<=end;++pc) {
+	if (equacnt>=MAX_EQUA_ELEMENTS) return ERR_EQUATION_TOO_COMPLEX;
+
+	s=prog_word[pc].word;
+
+	if (*s=='"') return ERR_INVALID_ARGUMENT;
+	if (*s=='[') {
+		equa[equacnt].pc=pc+1;
+		pc=prog_word[pc+1].end_pos+1;
+		equacnt++;
+		continue;
+		}
+	s2=s;
+	in_string=0;
+
+	/* Loop through the word and parse out components */
+	while(*s2) {
+		/* Don't want to parse stuff inside array subscripts */
+		if (*s2=='"') {
+			in_string=!in_string;  ++s2;  continue;
+			}
+
+		/* Have we got an operator? */
+		if (!in_string && (op=(char *)strchr(opstr,*s2))!=NULL) {
+			/* If not at start of word then save bit up to 
+			   current position. */
+			if (s2!=s) {
+				c=*s2; 	*s2='\0';
+				set_string(&(equa[equacnt].word),s);
+				*s2=c;
+				equacnt++;		
+				}
+			/* See if we've got 2 part op , eg <= , << etc */
+			if (equacnt && (*op=='=' || *op=='<' || *op=='>')) {
+				i=equacnt-1;
+				yes=1;
+
+				/* Switch on first op, eg '<' for <= */
+				switch(equa[i].op) {
+					case '<': 
+					if (*op=='=') equa[i].op='L';	 
+					else if (*op=='<') equa[i].op='U';
+					else return ERR_SYNTAX;
+					break;
+
+					case '>': 
+					if (*op=='=') equa[i].op='G';	 
+					else if (*op=='<') equa[i].op='D';
+					else return ERR_SYNTAX;
+					break;
+
+					case '!': 
+					if (*op!='=') return ERR_SYNTAX;
+					equa[i].op='N'; 
+					break;
+
+					default: yes=0;
+					}
+				if (yes) {
+					s=++s2;  continue;
+					}
+				}
+				
+			/* Save op as long as its not '-' and part of a 
+			   negative number. */
+			if (!(*op=='-' && (!equacnt || equa[equacnt-1].op))) {
+				/* Expnum might have been inc'd above */
+				if (equacnt>=MAX_EQUA_ELEMENTS) 
+					return ERR_EQUATION_TOO_COMPLEX;
+				
+				/* save op */
+				equa[equacnt].op=*op;
+				if (*op=='(') ++brackets;
+				else if (*op==')') --brackets;
+				++equacnt;
+				s=++s2;
+				continue;
+				}
+			}
+		++s2;
+		}
+	/* Save the word */
+	if (s2!=s) {
+		c=*s2; 	*s2='\0';
+		set_string(&(equa[equacnt].word),s);
+		*s2=c;
+		++equacnt;
+		}
+	}
+if (brackets) return ERR_MISSING_BRACKET;
+*ec=equacnt;
+return OK;
+}
+
+
+
+/*** Load any values if we've been given a variable name or a sub command ***/
+get_equation_values(equa,equacnt)
+struct equa_struct *equa;
+int equacnt;
+{
+int i,pc2,ret;
+char *s;
+
+/* Got words loaded in struct. Now go through them and check they're valid and
+   get values if any are variables. */
+for(i=0;i<equacnt;++i) {
+	if (equa[i].op) continue;
+	s=equa[i].word;
+	if (s && *s=='"') return ERR_INVALID_ARGUMENT;
+
+	/* If a command is embedded in the equation execute it */
+	if (equa[i].pc!=-1) {
+		pc2=equa[i].pc;
+		if ((ret=exec_command(&pc2))!=OK) return ret;
+		if (isinteger(rstack_ptr->value,1)) 
+			equa[i].value=atoi(rstack_ptr->value);
+		else return ERR_INVALID_ARGUMENT;
+		}
+	/* Is it an integer? */
+	else if (isinteger(s,1)) equa[i].value=atoi(s);
+	else {
+		/* Is it a variable? */
+		if ((ret=get_variable(s,current_proc))!=OK) 
+			return ret;
+		if (isinteger(rstack_ptr->value,1)) 
+			equa[i].value=atoi(rstack_ptr->value);
+		else return ERR_INVALID_ARGUMENT;
+		}
+	}
+return OK;
+}
+
+
+
+/*** Find the parts of the equation between backets, eg: (2+2*3) and send 
+     these off for evaluation to the next level function ***/
+evaluate_complete_equation(equa,equacnt)
+struct equa_struct *equa;
+int equacnt;
+{
+int i,from,to,ret;
+
+from=0;
+to=0;
+
+/* This loop won't exit until there are no unused right brackets because of
+   the i=-1; continue; code */
+for(i=0;i<equacnt;++i) {
+	if (equa[i].used) continue;
+	if (equa[i].op=='(') from=i;
+	else 
+	if (equa[i].op==')') {
+		to=i;	
+		equa[from].used=1;
+		equa[to].used=1;
+		if (--to - ++from < 2) return ERR_SYNTAX;
+		if ((ret=evaluate_equation(equa,from,to))!=OK) return ret;
+		i=-1;
+		continue;
+		}
+	}
+/* Execute one last time in case there were no brackets */
+if ((ret=evaluate_equation(equa,0,equacnt-1))!=OK) return ret;
+
+/* Result is last unused entry */
+for(i=0;i<equacnt;++i) {
+	if (!equa[i].used) {
+		sprintf(text,"%d",equa[i].value);
+		return push_rstack(text);
+		}
+	}
+return ERR_INTERNAL;
+}
+
+
+
+/*** Evaluate an equation that does not include brackets, eg: 2+2*3 ***/
+evaluate_equation(equa,from,to)
+struct equa_struct *equa;
+int from,to;
+{
+int i,j,p,expect_op,val,res,tmp;
+int v1_pos,op_pos;
+int prec[127];
+char last_op;
+
+/* Set up precidence */
+prec['&']=4; /* AND */
+prec['|']=4; /* OR */
+prec['~']=4; /* XOR */
+prec['U']=4; /* << */
+prec['D']=4; /* >> */
+prec['^']=3;
+prec['%']=3;
+prec['*']=2;
+prec['/']=2;
+prec['+']=1;
+prec['-']=1;
+prec['>']=0;
+prec['<']=0;
+prec['=']=0;
+prec['G']=0; /* >= */
+prec['L']=0; /* <= */
+prec['N']=0; /* != */
+
+res=0;
+
+/* Go through in precedence order */
+for(p=4;p>=0;--p) {
+	expect_op=0;
+	v1_pos=0;
+	op_pos=0;
+	last_op='\0';
+	for(i=from;i<=to;++i) {
+		if (equa[i].used) continue;
+		if (equa[i].op && prec[equa[i].op]<p) {
+			expect_op=0;  continue;
+			} 
+
+		if (expect_op) {
+			/* Expecting an operator */
+			if (!equa[i].op) return ERR_SYNTAX; 
+			last_op=equa[i].op;
+			op_pos=i;
+			}
+		else {
+			/* Expecting a number */
+			if (equa[i].op) return ERR_SYNTAX; 
+
+			val=equa[i].value;
+			switch(last_op) {
+				/* At start of the expression, no preceding operand */
+				case '\0': res=val;  v1_pos=i;  break;
+
+				/* Bitwise operands */
+				case '~': res^=val;  break;
+				case '&': res&=val;  break;
+				case '|': res|=val;  break;
+				case 'U': res<<=val;  break;
+				case 'D': res>>=val;  break;
+
+				/* Standard maths operands */
+				case '^': /* power */
+				if (val<0) {  res=0;  break;  }
+				if (!val) {  res=1;  break;  }
+				tmp=res;
+				for(j=1;j<val;++j) tmp*=res;
+				res=tmp;
+				break;
+			
+				case '%': res%=val;  break;
+				case '*': res*=val;  break;
+				case '/': 
+				if (!val) return ERR_DIVISION_BY_ZERO;
+				res/=val;  
+				break;
+				case '+': res+=val;  break;
+				case '-': res-=val;  break;
+
+				/* Comparison operands */
+				case '>': res=(res > val);  break;
+				case '<': res=(res < val);  break;
+				case '=': res=(res == val);  break;
+				case 'G': res=(res >= val);  break;
+				case 'L': res=(res <= val);  break;
+				case 'N': res=(res != val);  break;
+
+				default: return ERR_INTERNAL;
+				}
+
+			/* Got to end of <num> <op> <num>, now solve it */
+			if (last_op) {
+				equa[i].value=res;
+				equa[v1_pos].used=1;
+				equa[op_pos].used=1;
+				last_op='\0';
+
+				/* Force loop to scan from start again */
+				i=from-1;
+				continue;
+				}
+			}
+		expect_op=!expect_op;
+		}
+	}
+return OK;
+}
+/*** End of com_math() functions ***/
+
+
+
 /*** This deals with "not", "abs", "sgn", "rand" & "cpl". They all only take 
      1 argument. "atoc" isn't a maths command but its convenient to put it 
      here as it takes the same argument type and count. ***/
@@ -5082,41 +5506,9 @@ return push_rstack(text);
 
 
 
-/*** Function for the bit shift commands ***/
-com_shift(com_num,pc)
-int com_num,pc;
-{
-int pc2,end,ret,cnt,val,shiftby;
-
-end=prog_word[pc].end_pos;
-if (end-pc < 2) return ERR_SYNTAX;
-
-cnt=0;
-for(pc2=pc+1;pc2<=end;) {
-	if (cnt==2) return ERR_SYNTAX;
-	if ((ret=push_rstack_result(&pc2,STRING_ILLEGAL))!=OK) 
-		return ret;
-	if (!cnt) val=atoi(rstack_ptr->value);
-	else {
-		if ((shiftby=atoi(rstack_ptr->value))<0)
-			return ERR_INVALID_ARGUMENT;
-		}
-	++cnt;
-	}
-if (com_num==BSL) val<<=shiftby;
-else val>>=shiftby;
-sprintf(text,"%d",val);
-return push_rstack(text);
-}
-
-
-
-/*** Function for printing and maths strings & numbers commands. Its way too 
-     long and a bloody mess but its too much hassle to split it up so deal with
-     it. They all take a variable number of arguments. The print commands 
-     can't be nested and are in this function (even though they're not
-     maths commands) as its convienient to put them here. ***/
-com_mathsv(com_num,pc)
+/*** Function for the printing commands and some strings & numbers commands. 
+     They all take a variable number of arguments. ***/
+com_vararg(com_num,pc)
 int com_num,pc;
 {
 int pc2,ret,tmp,len,cnt,val,num,mesg_q;
@@ -5166,50 +5558,15 @@ for(pc2=pc+1;pc2<=prog_word[pc].end_pos;) {
 		if ((ret=exec_command(&tmp))!=OK) {
 			FREE(result);  return ret;
 			}
-		valptr=rstack_ptr->value;
-
-		if (com_num>=ADD && 
-		    com_num<=MINCOM && 
-		    com_num!=CTOA && 
-		    !isinteger(valptr,1)) {
+		if ((com_num==ATOC || com_num==MAXCOM || com_num==MINCOM) &&
+		    !isinteger(rstack_ptr->value,1)) {
 			FREE(result);  return ERR_INVALID_ARGUMENT;
 			}
-
-		if (valptr) num=atoi(valptr); else num=0;
+		if (valptr=rstack_ptr->value) num=atoi(valptr); else num=0;
 
 		switch(com_num) {
 			case ADDSTR:	
 			append_string(&result,valptr);  break;
-
-			case ADD: val+=num; break;
-
-			case SUB:
-			if (cnt==1) val=num; else val-=num;
-			break;
-
-			case MUL:
-			if (cnt==1) val=num; else val*=num;
-			break;
-
-			case DIV:
-			if (cnt==1) val=num; else val/=num;
-			break;
-
-			case MOD:
-			if (cnt==1) val=num; else val%=num;
-			break;
-
-			case BWA:
-			if (cnt==1) val=num; else val&=num;
-			break;
-
-			case BWO:
-			if (cnt==1) val=num; else val|=num;
-			break;
-
-			case BWX:
-			if (cnt==1) val=num; else val^=num;
-			break;
 
 			case ATOC:
 			sprintf(text,"%c",num);
@@ -5265,7 +5622,7 @@ for(pc2=pc+1;pc2<=prog_word[pc].end_pos;) {
 
 		/** Parameter is an embedded program string **/
 		case '"':
-		if (com_num>=ADD && com_num<=MINCOM && com_num!=CTOA) {
+		if (com_num==ATOC || com_num==MAXCOM || com_num==MINCOM) { 
 			FREE(result);  return ERR_INVALID_ARGUMENT;
 			}
 
@@ -5324,35 +5681,6 @@ for(pc2=pc+1;pc2<=prog_word[pc].end_pos;) {
 				FREE(result);  
 				return ERR_INVALID_ARGUMENT;
 
-				case ADD: val+=num;  break;
-				case SUB: 
-				if (cnt==1) val=num; else val-=num;  
-				break;
-
-				case MUL: 
-				if (cnt==1) val=num; else val*=num;  
-				break;
-
-				case DIV: 
-				if (cnt==1) val=num; else val/=num;  
-				break;
-
-				case MOD: 
-				if (cnt==1) val=num; else val%=num;  
-				break;
-
-				case BWA: 
-				if (cnt==1) val=num; else val&=num;  
-				break;
-
-				case BWO: 
-				if (cnt==1) val=num; else val|=num;  
-				break;
-
-				case BWX: 
-				if (cnt==1) val=num; else val^=num;  
-				break;
-
 				case ATOC:
 				sprintf(text,"%c",num);
 				append_string(&result,text);
@@ -5383,50 +5711,15 @@ for(pc2=pc+1;pc2<=prog_word[pc].end_pos;) {
 			if ((ret=get_variable(w,current_proc))!=OK) {
 				FREE(result);  return ret;
 				}
-
-			valptr=rstack_ptr->value;
-			if (com_num>=ADD && 
-			    com_num<=MINCOM && 
-			    com_num!=CTOA && 
-			    !isinteger(valptr,1)) {
+			if ((com_num==ATOC || com_num==MAXCOM || com_num==MINCOM) &&
+			    !isinteger(rstack_ptr->value,1)) {
 				FREE(result);  return ERR_INVALID_ARGUMENT;
 				}
-
-			if (valptr) num=atoi(valptr); else num=0;
+			if (valptr=rstack_ptr->value) num=atoi(valptr); else num=0;
 
 			switch(com_num) {
 				case ADDSTR: 
 				append_string(&result,valptr);  break;
-
-				case ADD: val+=num; break;
-
-				case SUB:
-				if (cnt==1) val=num; else val-=num;  
-				break;
-
-				case MUL:
-				if (cnt==1) val=num; else val*=num;  
-				break;
-
-				case DIV:
-				if (cnt==1) val=num; else val/=num;  
-				break;
-
-				case MOD:
-				if (cnt==1) val=num; else val%=num;  
-				break;
-
-				case BWA:
-				if (cnt==1) val=num; else val&=num;  
-				break;
-
-				case BWO:
-				if (cnt==1) val=num; else val|=num;  
-				break;
-
-				case BWX:
-				if (cnt==1) val=num; else val^=num;  
-				break;
 
 				case ATOC:
 				sprintf(text,"%c",num);
@@ -5499,6 +5792,12 @@ switch(com_num) {
 	FREE(result);  
 	return OK;
 
+	case MAXCOM:
+	case MINCOM:
+	if (cnt<2) return ERR_SYNTAX;
+	sprintf(text,"%d",val);
+	return push_rstack(text);
+
 	case MAXSTR:
 	case MINSTR:
 	if (cnt<2) return ERR_SYNTAX;
@@ -5539,10 +5838,52 @@ switch(com_num) {
 	FREE(log_result); 
 	return OK;
 	}
-/* Maths commands end up here */
-if (cnt<2) return ERR_SYNTAX;
-sprintf(text,"%d",val);
-return push_rstack(text);
+return ERR_INTERNAL;
+}
+
+
+
+/*** For locating the cursor. Only works on vt/ansi terminals ***/
+com_locate(com_num,pc)
+int com_num,pc;
+{
+int end,pc2,ret,cnt,val;
+char seq[11];
+int x,y;
+
+end=prog_word[pc].end_pos;
+if (end - pc < 2) return ERR_SYNTAX;
+
+/* Can't do this is output stream is null or to a message queue or a file */
+if (current_outstream==NULL ||
+    current_outstream->external==-1 ||
+    current_outstream->filename!=NULL) return ERR_INVALID_STREAM;
+
+/* Get args */
+for(pc2=pc+1,cnt=0;pc2<=end;++cnt) {
+	if (cnt>1) return ERR_SYNTAX;
+	if ((ret=push_rstack_result(&pc2,STRING_ILLEGAL))!=OK) return ret;
+	if ((val=atoi(rstack_ptr->value))<1 || val>999) 
+		return ERR_INVALID_ARGUMENT;
+	if (!cnt) x=val; else y=val;
+	}
+sprintf(seq,"\033[%d;%dH",y,x);
+return write_stream(seq);
+}
+
+
+
+/*** Clear the screen. Alternative to print "~CL" ***/
+com_cls(com_num,pc)
+int com_num,pc;
+{
+if (prog_word[pc].end_pos!=pc) return ERR_SYNTAX;
+
+if (current_outstream==NULL ||
+    current_outstream->external==-1 ||
+    current_outstream->filename!=NULL) return ERR_INVALID_STREAM;
+
+return write_stream("\033[H\033[J");
 }
 
 
@@ -8391,14 +8732,14 @@ int com_num,pc;
 {
 struct termio tio;
 char *w,seq[4],val[2];
-int on;
+int on,ex;
 
 if (prog_word[pc].end_pos - pc!=1) return ERR_SYNTAX;
-if (current_instream==NULL) return ERR_INVALID_STREAM;
 
 /* Can't set echoing with a message queue or a file */
-if (isinteger(current_instream->name,0) ||
-    current_instream->filename!=NULL) goto RET;
+if (current_instream==NULL ||
+    current_instream->external==-1 ||
+    current_instream->filename!=NULL) return ERR_INVALID_STREAM;
 
 w=prog_word[pc+1].word;
 
@@ -8407,28 +8748,30 @@ else if (!strcmp(w,"on")) on=1;
 else if (!strcmp(w,"val")) goto RET;
 else return ERR_SYNTAX;
 
+ex=current_instream->external;
 if (on) {
 	/* If sock stream send telopt code */
 	if (is_sock_stream(current_instream)) {
 		current_instream->echo=1;
 		sprintf(seq,"%c%c%c",255,252,1);
-		write_stream(seq);
+		write(ex,seq,3);
 		goto RET;
 		}
 	/* else set terminal echo mode */
-	ioctl(current_instream->external,TCGETA,&tio);
+	ioctl(ex,TCGETA,&tio);
 	tio.c_lflag |= ECHO;
-	ioctl(current_instream->external,TCSETA,&tio);
+	ioctl(ex,TCSETA,&tio);
 	}
 else {
 	if (is_sock_stream(current_instream)) {
 		current_instream->echo=0;
 		sprintf(seq,"%c%c%c",255,251,1);
-		write_stream(seq);
+		write(ex,seq,3);
+		goto RET;
 		}
-	ioctl(current_instream->external,TCGETA,&tio);
+	ioctl(ex,TCGETA,&tio);
 	tio.c_lflag &= ~ECHO;
-	ioctl(current_instream->external,TCSETA,&tio);
+	ioctl(ex,TCSETA,&tio);
 	}
 
 RET:
@@ -8436,4 +8779,5 @@ sprintf(val,"%d",current_instream->echo);
 return push_rstack(val);
 }
 
-/******************* Merry Christmas and a Happy New Year! ******************/
+
+/*********************** The End is not nigh , its here! *********************/

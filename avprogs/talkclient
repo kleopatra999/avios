@@ -3,7 +3,7 @@
 # dumb terminal sending all the input to the server process.
 #
 
-&stdalias
+&stdalias.inc
 
 alias "talkserv" TALKS
 alias "talkdata/passfile" PASSFILE
@@ -174,9 +174,9 @@ out "STDOUT"
 if [set tl [tail $int_mesg]]="EXIT"; exit 0; endif
 if tl=""; printnl
 else
-	set mesg [midstr $int_mesg [add [strlen pid] 2] [strlen $int_mesg]]
+	set mesg [midstr $int_mesg [math [strlen pid]+2] [strlen $int_mesg]]
 	if mesg="PRM"
-		set age [gettime time [sub [gettime rawtime] [gettime created]]]
+		set age [gettime time [math [gettime rawtime]-[gettime created]]]
 		print [format "~FT<%s, %s, %s>\n" \
 		      [midstr [gettime time] 1 5] [midstr age 1 5] name]
 	else; printnl mesg

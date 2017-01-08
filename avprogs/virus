@@ -12,13 +12,13 @@ while 1
 		set cnt [count v]
 
 		# Get program line number
-		set pln2 [elements v [sub cnt 2]]
+		set pln2 [elements v [math cnt-2]]
 		if pln!=pln2 and newvirus!=""
 			set newvirus [addstr newvirus ";"]
 		endif
 
 		# Write out program text only.
-		set newvirus [addstr newvirus [elements v 1 [sub cnt 3]] " "]
+		set newvirus [addstr newvirus [elements v 1 [math cnt-3]] " "]
 		set pln pln2
 	nexteach
 	iexec back orphan pid newvirus "virus"
