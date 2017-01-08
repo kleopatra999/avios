@@ -1,11 +1,11 @@
 /****************************************************************************
-                           AVIOS version 1.5.1
+                           AVIOS version 1.5.2
       A VIrtual Operating System, Copyright (C) Neil Robertson 1997-1998
 
-                      Version date: 26th March 1998
+                      Version date: 23rd April 1998
 
  Created out of blood and sweat using incantations of the C after dusk and 
- in dark dungeons found in London, England from January 1997 to March 1998.
+ in dark dungeons found in London, England from January 1997 to April 1998.
 
  Please read the README & COPYRIGHT files.
 
@@ -42,9 +42,9 @@
 #include <grp.h>
 #include <errno.h>
 
-#include "avios151.h" 
+#include "avios152.h" 
 
-#define VERSION "1.5.1"
+#define VERSION "1.5.2"
 
 struct streams *get_stream();
 int write_syslog(char *, ...);
@@ -116,23 +116,18 @@ build[0]='\0';
 strcat(build,"LINUX");
 #endif
 
-#ifdef FREEBSD
-if (build[0]) strcat(build,", ");
-strcat(build,"FREEBSD");
-#endif
-
 #ifdef NO_USLEEP
-if (build[0]) strcat(build,", ");
+if (build[0]) strcat(build," ");
 strcat(build,"NO_USLEEP");
 #endif
 
 #ifdef NO_CRYPT
-if (build[0]) strcat(build,", ");
+if (build[0]) strcat(build," ");
 strcat(build,"NO_CRYPT");
 #endif
 
 #ifdef SUN_BSD_BUG
-if (build[0]) strcat(build,", ");
+if (build[0]) strcat(build," ");
 strcat(build,"SUN_BSD_BUG");
 #endif
 
@@ -436,13 +431,7 @@ while(!feof(fp)) {
 				case 13: exit_remain=val;  break;
 				case 14: swapout_after=val;  break;
 				case 15: connect_timeout=val;  break;
-				case 16:
-#ifndef NO_USLEEP
-				tuning_delay=val;  break;
-#else
-				fprintf(stderr,"INIT ERROR: \"tuning_delay\" option not supported in this build on line %d.\n",line_num);
-				exit(-1);
-#endif
+				case 16: tuning_delay=val;  break;
 				}
 			break;
 			}
@@ -498,7 +487,7 @@ while(1) {
 		if (*sptr=='!') ++sptr; else spaces=0;
 		}
 #ifdef NO_USLEEP
-	sleep(1);
+	avios_usleep(200000);
 #else
 	usleep(200000);
 #endif
@@ -546,6 +535,7 @@ while(!feof(fp)) {
 		while(*s2>32 && *s2!='#') ++s2;
 		if (*s2=='#') break;
 		c=*s2;  *s2='\0'; 
+		if (!strlen(s)) break; /* Empty line */
 
 		/* Check options */
 		switch(option) {
@@ -716,7 +706,7 @@ int fd;
 
 /* Stat device to make sure its a character device */
 if (stat(name,&fs)==-1) {
-	fprintf(stderr,"INIT ERROR: Cannot stat device %s on line %d: %s\n",name,line_num,sys_errlist[errno]);
+	fprintf(stderr,"INIT ERROR: Cannot stat device %s on line %d: %s\n",name,line_num,strerror(errno));
 	exit(-1);
 	}
 if ((fs.st_mode & S_IFMT)!=S_IFCHR) {
@@ -726,7 +716,7 @@ if ((fs.st_mode & S_IFMT)!=S_IFCHR) {
 
 /* Now open it */
 if ((fd=open(name,O_RDWR))==-1) {
-	fprintf(stderr,"INIT ERROR: Cannot open device %s on line %d: %s\n",name,line_num,sys_errlist[errno]);
+	fprintf(stderr,"INIT ERROR: Cannot open device %s on line %d: %s\n",name,line_num,strerror(errno));
 	exit(-1);
 	}
 
@@ -923,7 +913,7 @@ if (!qbm) printf("   Creating socket on port %d\n",new->port);
 
 /* Create socket */
 if  ((new->listen_sock=socket(AF_INET,SOCK_STREAM,0))==-1) {
-	fprintf(stderr,"INIT ERROR: Socket creation error on line %d: %s\n",line_num,sys_errlist[errno]);
+	fprintf(stderr,"INIT ERROR: Socket creation error on line %d: %s\n",line_num,strerror(errno));
 	exit(-1);
 	}
 
@@ -937,13 +927,13 @@ bind_addr.sin_family=AF_INET;
 bind_addr.sin_addr.s_addr=INADDR_ANY;
 bind_addr.sin_port=htons(new->port);
 if (bind(new->listen_sock,(struct sockaddr *)&bind_addr,size)==-1) {
-	fprintf(stderr,"INIT ERROR: Socket bind() error on line %d: %s\n",line_num,sys_errlist[errno]);
+	fprintf(stderr,"INIT ERROR: Socket bind() error on line %d: %s\n",line_num,strerror(errno));
 	exit(-1);
 	}
 
 /* Make it listen for connections */
 if (listen(new->listen_sock,20)==-1) {
-	fprintf(stderr,"INIT ERROR: Socket listen() error on line %d: %s\n",line_num,sys_errlist[errno]);
+	fprintf(stderr,"INIT ERROR: Socket listen() error on line %d: %s\n",line_num,strerror(errno));
 	exit(-1);
 	}
 }
@@ -1000,13 +990,13 @@ for(pt=first_port;pt!=NULL;pt=pt->next) {
 		/* Accept connection */
 		size=sizeof(struct sockaddr_in);
 		if ((accept_sock=accept(pt->listen_sock,(struct sockaddr *)&acc_addr,&size))==-1) {
-			write_syslog("ERROR: Socket accept() error on port %d for process \"%s\": %s",pt2->port,pt2->process->name,sys_errlist[errno]);
+			write_syslog("ERROR: Socket accept() error on port %d for process \"%s\": %s",pt2->port,pt2->process->name,strerror(errno));
 			continue;
 			}
 
 		/* Set socket to non-blocking */
 		if ((fcntl(accept_sock,F_SETFL,O_NONBLOCK))==-1) {
-			write_syslog("ERROR: Socket fcntl() error on port %d for process \"%s\": %s",pt2->port,pt2->process->name,sys_errlist[errno]);
+			write_syslog("ERROR: Socket fcntl() error on port %d for process \"%s\": %s",pt2->port,pt2->process->name,strerror(errno));
 			close(accept_sock);
 			continue;
 			}
@@ -2801,6 +2791,56 @@ for(st=first_stream;st!=NULL;st=st->next) {
 	}
 }
 
+
+
+#ifdef NO_CRYPT
+/*** A simple encrypting function to be used by com_strings2() if standard 
+     unix crypt() function not available (its often missing with some FreeBSD
+     distributions). This is not as good as crypt but its better than naff all.
+     It returns a 10 char encrypted word. Str and key can be reversed and the
+     function will give the same result. ***/
+char *avios_crypt(str,key)
+char *str,*key;
+{
+u_char c,prev,*s,*k;
+static char output[11];
+int pos;
+
+pos=0;
+prev='\0';
+s=(u_char *)str;
+k=(u_char *)key;
+
+do {
+	c=(*s + *k + prev)%127;
+	if (c<33) c+=33;
+	prev=c;
+	output[pos]=(char)c;
+
+	if (!*(++s)) s=(u_char *)str;
+	if (!*(++k)) k=(u_char *)key;
+	} while(++pos<10);
+
+output[pos]='\0';
+return output;
+}
+#endif
+
+
+
+#ifdef NO_USLEEP
+/* Another way of implementing a usleep call. Here we use select() as a 
+   simple timer call by giving it a null readmask. */
+avios_usleep(usec)
+int usec;
+{
+struct timeval tm;
+
+tm.tv_sec=usec/1000000;
+tm.tv_usec=usec%1000000;
+select(0,NULL,0,0,&tm);
+}
+#endif
 
 
 
@@ -4602,8 +4642,11 @@ while(1) {
 		}
 
 	/* Sleep if tuning_delay required */
-#ifndef NO_USLEEP
-	if (tuning_delay) usleep(tuning_delay);
+	if (tuning_delay) 
+#ifdef NO_USLEEP
+		avios_usleep(tuning_delay);
+#else
+		usleep(tuning_delay);
 #endif
 
 	/* Get time */
@@ -6013,12 +6056,22 @@ com_while(com_num,pc)
 int com_num,*pc;
 {
 struct loops_choose *loop;
-int ret;
+int ret,newloop;
 
 if ((ret=evaluate_complete_expression(*pc))!=OK) return ret;
+
+/* $break always reset at top of loop */
+set_variable("$break",NULL,NULL,1);
+
+/* Reset $cont if new loop whether expression is true or not */
+if (current_loop==NULL || current_loop->start_pos!=*pc) {
+	set_variable("$cont",NULL,NULL,1);  newloop=1;
+	}
+else newloop=0;
+
 if (eval_result) {
 	/* Get new loop */
-	if (current_loop==NULL || current_loop->start_pos!=*pc) {
+	if (newloop) {
 		for(loop=first_loop;loop!=NULL;loop=loop->next) {
 			if (loop->start_pos==*pc) {
 				current_loop=loop;
@@ -6076,8 +6129,14 @@ int com_num,pc;
 {
 struct loops_choose *loop;
 
+/* Always reset at top of loop */
+set_variable("$break",NULL,NULL,1);
+
 /* Get new loop */
 if (current_loop==NULL || current_loop->start_pos!=pc) {
+	/* only reset if new loop */
+	set_variable("$cont",NULL,NULL,1);
+
 	for(loop=first_loop;loop!=NULL;loop=loop->next) {
 		if (loop->start_pos==pc) {
 			current_loop=loop;
@@ -6122,8 +6181,14 @@ to=0;
 step=0;
 new=0;
 
+/* Always reset at top of loop */
+set_variable("$break",NULL,NULL,1);
+
 /* Get new loop */
 if (current_loop==NULL || current_loop->start_pos!=*pc) {
+	/* only reset if new loop */
+	set_variable("$cont",NULL,NULL,1);
+
 	for(loop=first_loop;loop!=NULL;loop=loop->next) {
 		if (loop->start_pos==*pc) {
 			if ((ret=push_lstack(loop))!=OK) return ret;
@@ -6166,8 +6231,14 @@ if (cnt<4 || (cnt>4 && isnull(valptr[6]))) return ERR_SYNTAX;
 /* Get final parameter values then set variable and do checks */
 from=atoi(valptr[2]);
 to=atoi(valptr[4]);
-if (valptr[6]!=NULL) step=atoi(valptr[6]);  
+if (valptr[6]!=NULL) {
+	step=atoi(valptr[6]);
+	/* Check step is not 0 or invalid for the to and from values */
+	if (!step || (to>from && step<0) || (to<from && step>0))
+		return ERR_INVALID_ARGUMENT;
+	}
 else step=(to>from) ? 1 : -1;
+
 
 /* If just starting loop set var to initial value else get its current value */
 w=prog_word[*pc+1].word;
@@ -6219,13 +6290,18 @@ w1=prog_word[*pc+1].word;
 w2=prog_word[*pc+2].word;
 w4=prog_word[*pc+4].word;
 
+/* Always reset at top of loop */
+set_variable("$break",NULL,NULL,1);
+
 /* Get new loop */
 if (current_loop==NULL || current_loop->start_pos!=*pc) {
+	new=1;
+	set_variable("$cont",NULL,NULL,1);
+
 	for(loop=first_loop;loop!=NULL;loop=loop->next) {
 		if (loop->start_pos==*pc) {
 			if ((ret=push_lstack(loop))!=OK) return ret;
 			current_loop=loop;
-			new=1;
 			goto FOUND;
 			}
 		}
@@ -6819,7 +6895,7 @@ switch(com_num) {
 	case STAT:
 	strcpy(pathname,create_path(valptr));
 	if (lstat(pathname,&fs)==-1) {
-		write_syslog("Process %d (%s) got lstat() error with file \"%s\": %s",current_pcs->pid,current_pcs->name,pathname,sys_errlist[errno]);
+		write_syslog("Process %d (%s) got lstat() error with file \"%s\": %s",current_pcs->pid,current_pcs->name,pathname,strerror(errno));
 		return ERR_CANT_STAT_FS_ENTRY;
 		}
 
@@ -6865,7 +6941,6 @@ struct streams *st;
 int pc2,cnt,num1,ret,i,legal,matched;
 char *valptr[2],*result,pathname1[200],pathname2[200];
 char c,c2,*s,*s2,*e,*e2;
-char *avios_crypt();
 FILE *fpold,*fpnew;
 mode_t filemode;
 
@@ -7007,7 +7082,7 @@ switch(com_num) {
 
 	case RENAME:
 	if (rename(pathname1,pathname2)) {
-		write_syslog("Process %d (%s) got rename() error with file \"%s\" to \"%s\": %s",current_pcs->pid,current_pcs->name,pathname1,pathname2,sys_errlist[errno]);
+		write_syslog("Process %d (%s) got rename() error with file \"%s\" to \"%s\": %s",current_pcs->pid,current_pcs->name,pathname1,pathname2,strerror(errno));
 		return ERR_CANT_RENAME_FILE;
 		}
 	return OK;
@@ -7015,11 +7090,11 @@ switch(com_num) {
 
 	case COPY:
 	if (!(fpold=fopen(pathname1,"r"))) {
-		write_syslog("Process %d (%s) got fopen() error with file \"%s\": %s",current_pcs->pid,current_pcs->name,pathname1,sys_errlist[errno]);
+		write_syslog("Process %d (%s) got fopen() error with file \"%s\": %s",current_pcs->pid,current_pcs->name,pathname1,strerror(errno));
 		return ERR_CANT_OPEN_FILE_OR_DIR;
 		}
 	if (!(fpnew=fopen(pathname2,"w"))) {
-		write_syslog("Process %d (%s) got fopen() error with file \"%s\": %s",current_pcs->pid,current_pcs->name,pathname2,sys_errlist[errno]);
+		write_syslog("Process %d (%s) got fopen() error with file \"%s\": %s",current_pcs->pid,current_pcs->name,pathname2,strerror(errno));
 		fclose(fpold);  
 		return ERR_CANT_OPEN_FILE_OR_DIR;
 		}
@@ -7054,7 +7129,7 @@ switch(com_num) {
 
 	if (com_num==MKDIR) {
 		if (mkdir(pathname1,filemode)==-1) {
-			write_syslog("Process %d (%s) got mkdir() error with dir \"%s\": %s",current_pcs->pid,current_pcs->name,pathname1,sys_errlist[errno]);
+			write_syslog("Process %d (%s) got mkdir() error with dir \"%s\": %s",current_pcs->pid,current_pcs->name,pathname1,strerror(errno));
 			return ERR_CANT_CREATE_DIR;
 			}
 		return OK;
@@ -7062,7 +7137,7 @@ switch(com_num) {
 
 	/* CHMOD */
 	if (chmod(pathname1,filemode)==-1) {
-		write_syslog("Process %d (%s) got chmod() error with file \"%s\": %s",current_pcs->pid,current_pcs->name,pathname1,sys_errlist[errno]);
+		write_syslog("Process %d (%s) got chmod() error with file \"%s\": %s",current_pcs->pid,current_pcs->name,pathname1,strerror(errno));
 		return ERR_CANT_CHANGE_FS_ENTRY_PERM;
 		}
 	return OK;
@@ -7071,42 +7146,6 @@ push_rstack(result);
 FREE(result);
 return OK;
 }
-
-
-
-#ifdef NO_CRYPT
-/*** A simple encrypting function to be used by com_strings2() if standard 
-     unix crypt() function not available (its often missing with some FreeBSD
-     distributions). This is not as good as crypt but its better than naff all.
-     It returns a 10 char encrypted word. Str and key can be reversed and the
-     function will give the same result. ***/
-char *avios_crypt(str,key)
-char *str,*key;
-{
-u_char c,prev,*s,*k;
-static char output[11];
-int pos;
-
-pos=0;
-prev='\0';
-s=(u_char *)str;
-k=(u_char *)key;
-
-do {
-	c=(*s + *k + prev)%127;
-	if (c<33) c+=33;
-	prev=c;
-	output[pos]=(char)c;
-
-	if (!*(++s)) s=(u_char *)str;
-	if (!*(++k)) k=(u_char *)key;
-	} while(++pos<10);
-
-output[pos]='\0';
-return output;
-}
-#endif
-
 
 
 
@@ -7668,7 +7707,7 @@ if (rw==WRITE) remove(pathname);
 
 /* Open file and set stream */
 if ((fd=open(pathname,flags,0644))==-1) {
-	write_syslog("Process %d (%s) got open() error with file \"%s\": %s",current_pcs->pid,current_pcs->name,pathname,sys_errlist[errno]);
+	write_syslog("Process %d (%s) got open() error with file \"%s\": %s",current_pcs->pid,current_pcs->name,pathname,strerror(errno));
 	return ERR_CANT_OPEN_FILE_OR_DIR;
 	}
 sprintf(text,"FILE_%s",file);
@@ -7718,7 +7757,7 @@ for(pc=pc+1;pc<=end;) {
 
 		strcpy(pathname,create_path(valptr));
 		if (remove(pathname)) {
-			write_syslog("Process %d (%s) got remove() error with file \"%s\": %s",current_pcs->pid,current_pcs->name,pathname,sys_errlist[errno]);
+			write_syslog("Process %d (%s) got remove() error with file \"%s\": %s",current_pcs->pid,current_pcs->name,pathname,strerror(errno));
 			return ERR_CANT_DELETE_FILE_OR_DIR;
 			}
 		continue;
@@ -7726,7 +7765,7 @@ for(pc=pc+1;pc<=end;) {
 		case RMDIR:
 		strcpy(pathname,create_path(valptr));
 		if (rmdir(pathname)==-1) {
-			write_syslog("Process %d (%s) got rmdir() error with file \"%s\": %s",current_pcs->pid,current_pcs->name,pathname,sys_errlist[errno]);
+			write_syslog("Process %d (%s) got rmdir() error with file \"%s\": %s",current_pcs->pid,current_pcs->name,pathname,strerror(errno));
 			return ERR_CANT_DELETE_FILE_OR_DIR;
 			}
 		}
@@ -7791,7 +7830,7 @@ if (isnull(rstack_ptr->value)) return ERR_INVALID_ARGUMENT;
 
 strcpy(pathname,create_path(rstack_ptr->value));
 if ((dir=opendir(pathname))==NULL) {
-	write_syslog("Process %d (%s) got opendir() error with dir. \"%s\": %s",current_pcs->pid,current_pcs->name,pathname,sys_errlist[errno]);
+	write_syslog("Process %d (%s) got opendir() error with dir. \"%s\": %s",current_pcs->pid,current_pcs->name,pathname,strerror(errno));
 	return ERR_CANT_OPEN_FILE_OR_DIR;
 	}
 
@@ -8737,7 +8776,7 @@ else {
 con_addr.sin_family=AF_INET;
 con_addr.sin_port=htons(port);
 if ((consock=socket(AF_INET,SOCK_STREAM,0))==-1) {
-	write_syslog("Process %d (%s) got socket() error: %s",current_pcs->pid,current_pcs->name,sys_errlist[errno]);
+	write_syslog("Process %d (%s) got socket() error: %s",current_pcs->pid,current_pcs->name,strerror(errno));
 	return ERR_SOCKET;
 	}
 
@@ -8757,7 +8796,7 @@ if (connect_timeout) {
 if (connect(consock,(struct sockaddr *)&con_addr,sizeof(con_addr))==-1) {
 	if (conalarm_called) write_syslog("Connect timed out.");
 	else {
-		write_syslog("Got connect() error: %s",sys_errlist[errno]);
+		write_syslog("Got connect() error: %s",strerror(errno));
 		close(consock);
 		}
 	return ERR_CONNECT;
@@ -8767,7 +8806,7 @@ write_syslog("Connect succeeded.");
 
 /* Set socket to non-blocking */
 if ((fcntl(consock,F_SETFL,O_NONBLOCK))==-1) {
-	write_syslog("Process %d (%s) got fcntl() error: %s",current_pcs->pid,current_pcs->name,sys_errlist[errno]);
+	write_syslog("Process %d (%s) got fcntl() error: %s",current_pcs->pid,current_pcs->name,strerror(errno));
 	close(consock);
 	return ERR_SOCKET;
 	}

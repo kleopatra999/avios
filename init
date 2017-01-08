@@ -15,11 +15,11 @@ max_mesgs        10
 #exit_remain      0
 swapout_after    10
 connect_timeout  1
-#tuning_delay     50
+tuning_delay     100
 
    
 PROCESSES:
-TERM    pcs         pcs
+TERM    pcs            pcs
 4000    talkclient  talkclient
 BACK,20 talkserv    talkserv
 4010    clock       clock
@@ -32,4 +32,3 @@ BACK,20 talkserv    talkserv
 #BACK    virus2      virus2
 #BACK    sendprog    sendprog
 #BACK    killer      killer
-#TERM    ls          ls

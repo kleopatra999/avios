@@ -1,0 +1,14 @@
+# Dummy process which simply stores shared variables which other 
+# processes can access. 
+
+var @hosts
+share hosts
+set hosts:"1" "localhost 4030"
+set hosts:"2" "durandal 4030"
+
+proc main
+# Frig to save spinning on a loop,
+# just wait for our own death.
+waitpid $pid
+endproc
+

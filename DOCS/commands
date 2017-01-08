@@ -1,4 +1,4 @@
-                    *** Commands with version 1.5.1 ***
+                    *** Commands with version 1.5 ***
 
 -------------------------------------------------------------------------------
 
@@ -347,16 +347,19 @@ acontinue [<argument>]
 These work as per the commands in C except for continue within the choose
 structure (see above). The optional arguments set the $break and $cont 
 variables. If no argument is given the variables remain at their current
-setting.
+setting. $break is reset at the top of every loop iteration and also even if 
+the loop never runs. $cont is reset only at the start of a new loop (also if
+the loop never runs).
 
 eg:
    set j 0
-   while $break!="END"
+   while 1
        inc j
        for i 1 to 10
            if [math i+j]=5; break "END"; endif
        next
    wend
+   printnl $break
    printnl i "," j
 
 -------------------------------------------------------------------------------

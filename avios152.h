@@ -1,5 +1,5 @@
 /******************************************************************************
-                           AVIOS 1.5.1 header file
+                           AVIOS 1.5.2 header file
                    Copyright (C) Neil Robertson 1997-1998
  ******************************************************************************/
 
@@ -56,12 +56,6 @@
 #define TAB 9
 
 #define FREE(ptr)  if (ptr!=NULL) free(ptr)
-
-#ifdef FREEBSD
-extern const char *sys_errlist[];
-#else
-extern char *sys_errlist[];
-#endif
 
 /* Main system process structure. This stores all the structure pointers for
    a process and other bits. */

@@ -15,21 +15,10 @@ fi
 endproc
 
 
-# Reset $break
-proc _res_brk
-do; break ""; until 0
+var major_version minor_version patch_level
+
+proc version_info
+set major_version [midstr $version 1 1]
+set minor_version [midstr $version 3 3]
+set patch_level [midstr $version 5 5]
 endproc
-
-
-# Reset $cont
-proc _res_cont
-do; continue ""; until 1
-endproc
-
-
-# Reset both
-proc _res_bc
-call _res_brk
-call _res_cont
-endproc
-

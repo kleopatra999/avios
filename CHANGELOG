@@ -95,7 +95,7 @@ Versions relased so far (and the release date in DD/MM/YY format):
  - Fixed bug in com_echo() (Telopt sequence being sent down wrong stream)
  - Minor miscellanious code changes.
 
-1.5.1 (x/3/98)
+1.5.1 (26/3/98)
  - Stat command now gives file owner and file group info and will recognise
 	   fifo type files. eg: pipes.
  - Added more syntax checking in com_input().
@@ -104,3 +104,17 @@ Versions relased so far (and the release date in DD/MM/YY format):
        listing.
  - Tidied up code some more.
  - Added a makefile.
+
+1.5.2 (23/4/98)
+ - Added avios_usleep function which now means that systems without a
+       usleep function can use the tuning_delay option in the init file 
+       regardless.
+ - $break now reset at the start of every loop even if loop never runs
+       and on every iteration of the loop.
+ - $cont reset at the start of a new loop (even if loop never runs) but not 
+       thereafter.
+ - Fixed bug in "for" command where the stepping parameter was not being 
+       checked for validity.
+ - Replaced sys_errlist array with strerror function which now means the
+       code no longer needs the FREEBSD compile option.
+ - Got rid of the commas in $build so can do matching more easily if required.

@@ -212,7 +212,10 @@ Process specific ones:
    $last_error - Set to the error number of the error last caught by a trap
                  command.
 
-   $break - Set by the optional argument with the break command.
+   $break - Set by the optional argument with the break command. This is
+			reset at the top of every loop of every iteration and also even
+			if the loop never runs. eg: while 0; wend
 
-   $cont - Set by the optional argument with the continue command.
+   $cont - Set by the optional argument with the continue command. This is
+	       reset at the start of a new loop only. 
 
