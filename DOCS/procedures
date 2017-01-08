@@ -1,0 +1,58 @@
+                             *** PROCEDURES ***
+
+AviosPL is a procedural language. Only 4 commands can be used outside
+procedures and these are: alias, var, svar and set. If any other command
+is used outside an error will be generated. As in C the language starts
+executing from a procedure called "main". This must be present or the program
+will not run.
+
+Formal parameters can be passed to procedures either by value or by reference 
+the latter denoted by having a star in front of the parameter name. See the 
+variables documentation for more details.
+Something else to note about parameters are that they can be declared as
+arrays whether or not the passed variable is an array itself , also the
+reverse is true and this includes pass by reference variables so you can
+define a variable as an array then treat and alter it as a string in another
+procedure. 
+
+Procedures are returned from either by the "return" command or when endproc
+is reached. The return command can be used to return a value from a 
+procedure which is then stored in the $proc array with the array element 
+name being that of the procedure called and also in the $result variable.
+
+eg:  proc main
+     call proc2 "hello"
+     printnl $proc:"proc2" " is the same as " $result
+     endproc
+
+     proc proc2 h
+     return "abcde"
+     endproc
+
+The $result variable provides a simpler method of accessing the returned
+value but it changes after every procedure whereas the $proc array stores
+the value returned from a given procedure until that procedure is next
+called and returned from.
+
+A call command cannot return the value directly because it cannot be
+nested. ie you _cannot_ do the following:
+
+proc main
+printnl [call proc2]
+endproc
+
+etc...
+
+The technical reason for this is that if call was nested (which would cause 
+internal recursion with the interpreter itself) the internal recursion would 
+have to be unwound , somehow its state stored on a stack and the program 
+counter set to point to the new procedure. All that would have to be reversed 
+when the called procedure exited. Way way too much hassle. 
+
+Recursion is not allowed and if attempted will generate an error. This is 
+because multiple copies of the same procedure cannot exist on the stack for
+technical reasons. This will change in future releases. This problem must be
+borne in mind when using interrupts (ie an interrupt calls a procedure which
+is already on the stack), please read the interrupts file for the solution.
+
+

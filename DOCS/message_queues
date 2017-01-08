@@ -1,0 +1,41 @@
+                           *** MESSAGE QUEUES ***
+
+Message queues are the most complex method for processes to communicate
+with each other (the other methods are interrupts and shared variables).
+Each process has its own message queue which can have messages from any
+other process written to it. The format of a queue is as follows:
+
+  <pid of sending process>  --
+  <line 1 of message>         |
+  <line 2>                    | - One message
+  :                           |
+  :                         --
+  <pid of sending process>
+
+As you can see the pid of the process which sent the message comes first
+followed by the message it sent. Since each line of the message including
+the pid is terminated by a newline an input from the message queue will only
+read one line at a time. So you know when you have read 1 entire message
+the variable $mesg_cnt exists which keeps a count of number of messages
+on the queue. After a message is read its deleted so the $mesg_cnt will drop
+by one hence if it drops after you've done an input you know you've read the
+last line of that message.
+   The above scenario only works for simple systems where a process writes 
+to anothers queue and leaves it at that. If a process continually writes to
+a queue whilst the owner is reading off it then the $mesg_cnt variable will
+seem to go up and down at random and keeping track of it will be hard. For
+this reason the "lock" command exists which will lock a message queue
+preventing any other process writing to it for the time being.
+
+To access your own message queue the stream "MESG_Q" is used.
+
+eg:  in "MESG_Q"
+     input pid
+     printnl "Process pid: " pid
+
+To write to another processes queue use its process id as the stream.
+
+eg: out 3
+    printnl "Test message."
+
+

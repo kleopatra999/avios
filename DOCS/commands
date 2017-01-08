@@ -1,0 +1,985 @@
+                          *** THE COMMANDS ***
+
+Here are a list of the commands that currently have been or will be implemented
+fairly soon. No doubt more will get added to the list as development progesses
+but for them meantime you'll have to work with these....
+
+-------------------------------------------------------------------------------
+
+alias <from> <to>
+
+Alias 'from' to 'to'. This is a very simple substition in that expressions
+are not supported. One thing to note is that if an alias is used inside a
+procedure then substitutions are done _only_ inside that procedure.
+
+eg: alias 1 TRUE
+
+-------------------------------------------------------------------------------
+
+var <variable list>
+svar <variable list>
+
+These 2 commands are identical except that svar will cause the variables to be
+static within a procecure (ie their values are not lost when the procedure
+exits) whereas var will not. Variables can be declared as different types using
+the @ and ~. @ declares them as an array , ~ as read-only.
+
+eg: var tom @dick ~@harry ~fred
+
+-------------------------------------------------------------------------------
+
+share <variable list>
+unshare <variable list>
+
+Seperate processes can access each others variables providing they have been 
+set to a sharing status using the share command. Only global variables belonging
+to the process using the share command can be shared. The unshare command 
+removes sharing status from variables.
+
+eg: Process 'tom' sets variable 'a' to shared status like so:
+
+    var a
+    share a
+    set a 1
+ 
+    Process 'dick' then accesses and sets the variable using the 
+    <process id>.<variable name> notation.
+
+    set pid pcs?"tom"
+    printnl "a is " pid.a
+    set pid.a 2  
+
+-------------------------------------------------------------------------------
+
+set <variable> <expression/value>
+
+This assigns a value to a variable or array element. If an array element does 
+not exist when it is assigned to it is created as long as a specific index
+number is not used.
+
+eg: set tom [addstr "hello " "world]
+    set dick:"one" "test string"
+
+-------------------------------------------------------------------------------
+
+inc <variable> [amount]
+dec <variable> [amount]
+
+These increment or decrement a variable. The default is 1 if the optional
+amount is not specified.
+
+eg: inc fred
+    dec fred 3
+
+-------------------------------------------------------------------------------
+
+addstr <string list>
+
+This adds a list of strings together to produce 1 long string.
+
+eg: printnl [addstr "hello " "cruel" " world"]
+
+-------------------------------------------------------------------------------
+
+substr <string> <from> [<to>]
+
+Substracts the characters from 'from' to 'to' from the string. If 'to' is
+ommited then it defaults to the same as 'from'. This command does the exact 
+opposite of midstr.
+
+eg: printnl [substr "12345" 2 4]
+
+-------------------------------------------------------------------------------
+
+mulstr <string> <amount>
+
+This multiplies the string by the amount to give a result string.
+
+eg: printnl [mulstr "'ello " 3] "whats going on 'ere then?"
+
+-------------------------------------------------------------------------------
+
+add <numeric list>
+sub <numeric list>
+mul <numeric list>
+div <numeric list>
+mod <numeric list>
+
+These are the maths commands, mod being the modulus.
+
+eg: printnl [add 1 2 3]
+
+-------------------------------------------------------------------------------
+
+max <numeric list>
+min <numeric list>
+
+Return the maximum or the minimum of the numeric list.
+
+eg: printnl [max 2 15 8]
+
+-------------------------------------------------------------------------------
+
+maxstr <string list>
+minstr <string list>
+
+Return the maximum or mininum of the string list
+
+eg: printnl [maxstr "hello" "cruel" "world"]
+
+-------------------------------------------------------------------------------
+
+print <string or numeric list>
+printnl <string or numeric list>
+
+These are the 2 output commands the language uses which will output to wherever
+the current outstream is pointing too. The only difference between the commands
+is that printnl places a newline on the end of its output. These commands
+can cause the process to go to an OUTPUT_WAIT state if they try to write
+to locked stream or full message queue stream unless the stream is non-blocking
+in which case they'll just fall through having done nothing (but the
+$print_ok system variable will have been set to 0 so you can check for
+this occurance).
+
+eg: printnl "hello" [addstr "cru" "el"] "world " 2 " day"
+
+-------------------------------------------------------------------------------
+
+label "<label>"
+goto <label>
+
+The label command can only have its label in the form of a quoted string but
+the goto command can use a variable or command output aswell.
+
+eg: label "start"; goto [addstr "st" "art"]
+
+-------------------------------------------------------------------------------
+
+if <expression>
+  <statements>
+[else]
+  <statements>
+endif
+
+The if statement works in the expected way and _must_ be terminated with an
+endif. The else statement is optional.
+
+eg: if fred=1 
+       printnl "YES" 
+    else 
+       printnl "NO" 
+    endif
+
+-------------------------------------------------------------------------------
+
+while <expression>
+  <statements> 
+wend
+
+A while loop loops while the expression is true.
+
+eg:  while cnt<=10
+        printnl "Count: " cnt;  inc cnt
+     wend
+
+-------------------------------------------------------------------------------
+
+do
+   <statements>
+until <expression>
+
+A do loop loops until the expression is true.
+
+eg: do
+        printnl "Count: " cnt;  inc cnt
+    until cnt>10
+
+-------------------------------------------------------------------------------
+      
+for <variable> <start> to <end> [step <increment/decrement>]
+   <statements>
+next
+
+Loop from the until the variable has reached the value <end> first setting it
+to the value <start>. The step is optional and if used will cause the variable 
+to be incremented by the given amount. If no step option is given the 
+interpreter will default to 1 if start < end or -1 if start > end.
+
+eg: for cnt 1 to 10; printnl "Count: " cnt; next
+
+-------------------------------------------------------------------------------
+
+foreach <subscript variable> <value variable> in <array variable>
+   <statements>
+nexteach
+
+This will go through the array variables elements setting the subscript 
+variable to a subscript and the value variable to its matching value until no 
+more array elements are found.
+
+eg: var @a s v
+    set a:"tom" "first"
+    set a:"dick" "second"
+    set a:"harry" "third"
+    foreach s v in a; printnl s "," v; nexteach
+
+-------------------------------------------------------------------------------
+
+choose <value>
+   value <value>; [<statements>];  break/continue
+   default; [<statements>]; break/continue
+chosen
+
+This is an analog of the C switch statement but it has one crucial difference
+which is that the continue statement plays a part and it will cause the
+interpreter to jump back to the beginning of the choose as in a loop.
+
+eg: choose cnt
+       value 1; printnl "Its 1, 3 or 4"; break
+       value 2; printnl "Its 2";  break
+       value 3
+       value 4; set cnt 1;  continue
+       default; printnl "It isn't 1 , 2 or 3"
+    chosen
+ 
+-------------------------------------------------------------------------------
+
+break
+continue
+
+These work as per the commands in C except for continue within the choose
+structure. See above.
+
+-------------------------------------------------------------------------------
+
+call <procedure> [<parameters>]
+
+Unsurprisingly this calls a procedure with optional parameters. This command 
+cannot be nested because of a rather intractable coding reason (we'd need to
+unwrap recursive calls within the interpeter itself) so the procedure return 
+value is stored in the system $proc array.
+
+eg: call fred a b
+    printnl $proc:"fred"
+
+-------------------------------------------------------------------------------
+
+proc <procedure> [<formal parameters>]
+endproc
+
+These commands define the start and end of a procedure as you'd expect. 
+Parameters can either be declared as pass by value or by reference (the latter
+being defined by placing a star '*' in front of the variable) and can also
+be declare as an array or read only. 
+
+eg proc fred c *d
+      set d [mul c 2]
+   endproc
+
+-------------------------------------------------------------------------------
+
+return [<return value>]
+exit <numeric exit code>
+
+The return command returns from a procedure , the return value being stored in
+the $proc array element for the precedure. Exit exits from the program and 
+currently returns the exit code to the unix shell and the exit code can only
+be a number.
+
+eg: if a=b; return "fred"
+    else; exit [sub a b]
+    endif
+    
+-------------------------------------------------------------------------------
+
+input <variable list>
+
+This is the input command and it will take its input from the current input
+stream whatever that may be. Input is read up until the first newline 
+encountered (or until the internal input string size is exceeded) and the
+date is placed in the first or next variable in the list. This command cannot 
+be nested. The command will not return until all variables have been filled.
+
+eg: var name address
+    print "Enter name and address> "
+    input name address
+    printnl "NAME: " name ",  ADDRESS: " address
+
+-------------------------------------------------------------------------------
+
+atoc <ascii code list>
+ctoa <string>
+
+Atoc converts a list of ascii codes into a character string and ctoa converts
+a string into a list of ascii codes.
+
+eg: printnl [ctoa "abc"] "=" [atoc 97 98 99]
+
+-------------------------------------------------------------------------------
+
+not <value>
+
+This will return a 1 for any value that is zero or an empty string and will
+return 0 for anything that is <> 0 or is not an empty string.
+
+eg: printnl [not "hello"] [not 0]
+
+-------------------------------------------------------------------------------
+
+strlen <string>
+
+This gives the length of a string.
+
+eg: printnl [strlen "hello"]
+
+-------------------------------------------------------------------------------
+
+abs <number>
+
+Give the absolute value of the number which basically means that if its a 
+negative value convert it to positive.
+
+-------------------------------------------------------------------------------
+
+sgn <number>
+
+Give the sign of the number. A negative number returns -1 , positive 1 and 0
+returns 0.
+
+-------------------------------------------------------------------------------
+
+rand <seed>
+
+Returns a random number from 0 up to and *including* the seed. Note that
+the max value that can be returned is limited by the unix RAND_MAX macro
+which can be as low as 32767.
+
+-------------------------------------------------------------------------------
+
+isnum <value>
+
+Returns 1 if the value is a number otherwise 0.
+
+eg: printnl [isnum "fred"] [isnum 123] [isnum "123"]
+
+-------------------------------------------------------------------------------
+
+upperstr <string>
+lowerstr <string>
+
+These convert a string to upper and lower case respectively.
+
+eg: printnl [upperstr "hello"]
+
+-------------------------------------------------------------------------------
+
+instr <searched string> <searched for string> <start point>
+
+This returns the position the searched for string is found in the search 
+string with searching starting at the start point. If the string is not
+found then zero is returned. REMEMBER that the first character in the
+string is at position 1 in this language, not 0 as in C!!
+
+eg: printnl [instr "hello" "el" 1]
+
+-------------------------------------------------------------------------------
+
+midstr <string> <from> [<to>]
+
+This will print the part of the string between and including the 'from' and 'to'
+positions. If 'to' is ommited it defaults to the same as 'from'.
+
+eg: printnl [midstr "12345" 2 4]
+
+-------------------------------------------------------------------------------
+
+insertstr <string> <string to insert> <position>
+overwrstr <string> <string to insert> <position>
+
+Both these put one string inside another starting from position, the difference
+being that the top one will keep the strings original contents and shift them 
+up accordingly whereas the bottom will overwrite as many characters as 
+necessary.
+
+eg: printnl [insertstr "1256" "34" 3]
+    printnl [overwrstr "1256" "34" 3]
+
+-------------------------------------------------------------------------------
+
+rpadstr <string> <pad string> <length>
+lpadstr <string> <pad string> <length>
+
+Both the above pad the given string using pad string until it is exactly length
+characters long. Lpadstr pads to the left whilst rpadstr pads to the right.
+
+eg: printnl [rpadstr "start" "-=" 20]
+    printnl [lpadstr "end" "-=" 20] 
+
+-------------------------------------------------------------------------------
+
+insertelem <list> <element> <position>
+overelem <list> <element> <position>
+
+These work in the same way as the associated string commands. Insertelem
+will put the element at the given position but keeping the previous element
+by shitfing the remainder of the list up. Overelem simply overwrites the
+current element at that position with the new one.
+
+eg: printnl [insertelem "one two four" "three" 3]
+    printnl [overelem "one two four four" "three" 3]
+
+
+-------------------------------------------------------------------------------
+
+elements <list> <from> [<to>]
+
+This will list the elements from element number 'from' to 'to'. If 'to' is
+ommited then it defaults to the same as 'from'.
+
+eg: printnl [listelem "hello cruel world out there" 2 3]
+
+-------------------------------------------------------------------------------
+
+count <list>
+
+This counts the number of elements in the given list. Elements are basically
+words seperated by whitespace.
+
+eg: printnl [count "there are seven elements in this list"]
+
+-------------------------------------------------------------------------------
+
+match <list1> <list2>
+
+This will return a string with all the elements that are common to list1 and
+list2. Things to note are that it does not check for repeated elements in
+list1 (tedious to code) so these will get returned twice if they exist and
+they match but it will not repeat for elements that match and are repeated
+in list2.
+
+eg: printnl [match "a a b c d e" "a h k q d p"]  gives "a a d".
+but printnl [match "a b c d e" "a a h k q d p"]  will only give "a d".
+
+------------------------------------------------------------------------------
+
+unique <list>
+
+This removes duplicate elements from a list.
+
+eg: printnl [unique "hello there hello cruel cruel world there"]
+
+------------------------------------------------------------------------------
+
+subelem <list> <from> [<to>]
+
+This returns the list minus the elements between and including the from
+and to positions. If 'to' is ommited it defaults to the same as 'from'.
+
+eg: printnl [sublem "hello there cruel world" 3]
+
+-------------------------------------------------------------------------------
+
+head <list>
+tail <list>
+rhead <list>
+rtail <list>
+
+Head gives the first element in a list, rhead gives the last element.
+Tail gives everything except the first element , rtail everything except
+the last.
+
+eg: set list "head and tail"
+    printnl [head list] "," [tail list]
+
+-------------------------------------------------------------------------------
+
+arrsize <array>
+
+This returns the number of elements (not string elements) in an array.
+
+eg: var @a
+    set a:"one" "first"
+    set a:"two" "second"
+    printnl [arrsize a]
+
+-------------------------------------------------------------------------------
+
+trap <statement(s)>
+
+This traps any errors returned by the commands within the statements it
+encloses preventing the interpreter printing the error and halting. The
+trap command itself returns the error number as its output and also sets
+$error:"last" to the error number.
+
+eg: var fred err
+    set err [trap [cleararray fred]]  
+    if err; printnl "Error is: " $error#err; endif
+
+or: var fred
+    trap [cleararray fred]
+    if $error:"last"; printnl "Error is: " $error#$error:"last"; endif
+
+Fred above is not an array variable and this will cause an error.O
+
+-------------------------------------------------------------------------------
+
+in <stream>
+out <stream>
+
+These set the current input and output streams (ie where input and output
+is got from and sent to). Streams are internally linked with actual file
+descriptors but at the language level are just name strings. Built in streams
+are STDIN, STDOUT and STDERR but other streams are obtained from the output
+of the "open" command.
+
+eg: out "STDERR"; printnl "Error"; out "STDOUT"
+
+-------------------------------------------------------------------------------
+
+block <input stream>
+nonblock <input stream>
+
+These commands switch blocking on and off for a stream that is either an
+input or bidirectional one. Normally a stream is blocked on a read which
+means that if there is no data on a stream or the data is incomplete any 
+"input" command using that stream will hang until normally a newline is
+seen along with preceding data (other times it will return include an EOF or a 
+closed socket). If noblocking is set the input will get whatever data is there 
+if any and return immediately. 
+
+eg: nonblock "STDIN"
+    printnl "Enter data> "
+    do
+      input a
+    until a!=""
+    block "STDIN"  # return to normal
+
+The above will loop until a contains data, just pressing return will not
+stop the loop since a newline by itself is considered an empty string
+by the interpreter. 
+
+-------------------------------------------------------------------------------
+
+lock <internal stream>
+unlock <internal stream>
+
+This locks and unlocks an internal stream that belongs to the process
+executing the command (currently the only internal streams are message
+queues). A locked stream means that another process trying to write to it
+will go to an OUTPUT_WAIT state (or will just fall through the print command
+if stream is also non-blocking) until the stream becomes unlocked whereupon
+it can then write its data.
+
+eg: lock "MESG_Q"
+    printnl "Current message count as of " [gettime time] " is: " $mesg_cnt
+    unlock "MESG_Q"
+
+-------------------------------------------------------------------------------
+
+open to read/write/readwrite/append <filename>
+
+This opens a file to carry out normal file operations. It returns a stream
+identifier as a result which can be used with the in and out commands.
+If a file is opened to write it will be deleted if it already exists unless
+it is opened using "readwrite". Append behaves in the usual way.
+
+eg: set stream [open to read "datafile"]
+    in stream
+    input line
+
+-------------------------------------------------------------------------------
+
+close <stream>
+
+Closes a stream and free all memory structures associated with it.
+
+-------------------------------------------------------------------------------
+
+cseek start/current <chars offset>
+lseek start/current <lines offset>
+
+These commands both seek through the current input stream, the difference 
+is that cseek does it by number of characters and lseek by number of lines. 
+lseek will count a line as soon as it hits '\n' in the character stream. The 
+"start" option starts the seek from the beginning of the file whereas "current"
+starts it from the current file position. If the seek can be done a '1' is 
+returned else '0'.
+
+eg: set fd [open to read "abcd"]
+    in fd
+    input line
+    if [lseek current 2]=0
+	printnl "File too small.";  close fd;  exit 0
+    endif
+
+-------------------------------------------------------------------------------
+
+delete <filename>
+
+Delete the named file. An error will be returned if this is not possible
+eg: If the files doesn't exist or it is in use by another process.
+
+-------------------------------------------------------------------------------
+
+rename <old filename> <new filename>
+
+Rename the given file from the old to the new name. An error is returned
+if this can't be done because of the sames reasons as delete.
+
+-------------------------------------------------------------------------------
+
+copy <old filename> <new filename>
+
+Copy the given file from the old to the new name (keeping the old one 
+naturally). An error is returned if this can't be done.
+
+-------------------------------------------------------------------------------
+
+dir all/files/dirs/links/cdevs/bdevs/usocks <directory>
+
+This command will return a list of the specified file types in the given
+directory. The types are the following:
+
+all - everything (files , directories , links etc)
+files - ordinary files
+dirs - directories
+cdevs - character devices
+bdevs - block devices
+usocks - unix sockets
+
+Please not that wild card or regular expression derived listings are not yet 
+supported (and may never be).
+
+eg: printnl [dir cdevs "/dev"]
+    printnl [dir all "."]
+
+-------------------------------------------------------------------------------
+
+format <format string> <argument string1> <string2> ...
+
+This will act like C's printf and sprintf statements by formatting a string
+using \ escape codes and % format definers. There are limitations though in
+that \000 octal codes are not supported nor is the %* format but for the
+majority of applications this should not be a problem. Supported escape
+codes are: \n \r \b \f \t \v and \a. Also \" will allow quotes to be printed
+in strings.
+
+eg: print [format "\aName: \"%-20s\", Total: %03d\n" name [add tot1 tot2]]
+
+-------------------------------------------------------------------------------
+
+crypt <string> <salt>
+
+This calls the unix crypt function with the string to be encrypted and the
+salt.
+eg: set encpasswd [crypt passwd "NU"]
+
+-------------------------------------------------------------------------------
+
+spawn child/orphan <pid var> [<new process name>]
+
+This will spawn a new process. The child/orphan option will decide whether
+the new processes parent pid will be set to that of the spawning process
+or will be set to zero. The pid variable will be set to the pid of the
+process created in the enviroment of the parent process but will be set to
+zero in the enviroment of the child/orphan process (which will commence its
+execution from the command immediately following "spawn" in the code).
+The optional new process name will rename the new process otherwise the
+process is given the same name as its parent.
+
+eg: var pid
+    spawn child pid "tom"
+    if pid; printnl "PARENT"; else; printnl "CHILD"; endif
+   
+-------------------------------------------------------------------------------
+
+exec child/orphan <pid var> <filename> <process name> [<arguments>]
+
+Exec will create an entirely new process, loading up and running the 
+program file given, giving it the process name and passing it the command
+line arguments if any. The exec'ing process will be returned the pid of
+the new process. The new process (unlike in the spawn command) will start
+running from the beginning of its main procedure and if the child option
+is specified its parent id will be set to that of the exec'ing process else
+it'll be set to zero.
+
+eg: var pid
+    exec child pid "progfile" "tom" "hello" "world"
+    printnl "New pid: " pid
+
+In the above you could also do the following:
+    exec child pid "progfile tom hello world"
+
+ie you can have the filename , process name and arguments all in one string.
+
+-------------------------------------------------------------------------------
+
+wait <pid var>
+waitpid <pid>
+
+These two commands both wait for termination of processes but the difference
+is that "wait" will wait for any child process to exit and when it does it
+returns the pid of the process in the pid variable, whereas "waitpid" will 
+wait for the specific process given as the argument to die and will then 
+return.
+
+eg: var pid
+    wait pid
+    :
+    waitpid 3
+
+-------------------------------------------------------------------------------
+
+exists <pid>
+
+Returns 1 if the given process exists , otherwise 0.
+
+-------------------------------------------------------------------------------
+
+pcsinfo <pid>
+
+Returns a list of information about the given process which consists of the
+following:
+
+<process name> <process main filename> <parent pid> <time created> \
+<site connected (if any)> <status> <interrupts enabled> <interrupted> \
+<message count or queue> <colour on>
+
+-------------------------------------------------------------------------------
+
+relation <pid1> <pid2>
+
+This prints a number giving the relation of process 1 to process 2. If the 
+number is negative then this shows that process 1 process is a decendent of 2
+but if positive then its an ancestor. The number shows how far removed the 
+processes are. A -1 or 1 indicates a parent or child respectively , -2 or 2 
+indicates grandparent/grandchild etc. If the result is 0 then either there is 
+no line of descent or the pid equals that of the current process.
+
+eg: var pid
+    spawn child pid
+    if pid
+        printnl "PID: " $pid "," pid ": " [relation pid $pid]
+    endif
+    sleep 1  # So the child process doesn't vanish before we test relation
+
+-------------------------------------------------------------------------------
+
+kill <pid>
+
+This command will kill the given process given the following conditions:
+A) It is not the system_dummy process.
+B) The process is not a process image.
+C) It is a descendent process of the killing process or kill_any is set to 
+   YES in the init file.
+
+It returns the status of the process just before we killed it.
+
+eg: spawn child pid
+    if [not pid]
+		printnl "Child sleeping"; sleep 10
+    endif
+    sleep 1
+    printnl "Child was: " [kill pid]
+
+-------------------------------------------------------------------------------
+
+onint from child/nonchild/timer <procedure>
+onint ignore child/nonchild/timer
+
+This command sets up the processes action upon receiving an interrupt.
+There are 3 different types of interrupt it can receive:
+child - an interrupt sent by a child process
+nonchild - an interrupt sent by a non-child process
+timer - an interrupt sent by an expired timer
+
+The procedure given is the procedure called when one of these is received.
+The ignore option will reset any action previously setup. Please note that
+there are no default options for interrupts , if a process receives one but
+onint has not been used the interrupt is ignored and the process does nothing.
+
+eg: 
+    proc main
+    onint from timer timer_proc
+    timer 1
+    while 1; wend # loop forever
+    endproc
+
+    proc timer_proc
+    svar tt
+    
+    if tt="" or tt="tock"; set tt "tick"
+    else; set tt "tock"
+    endif
+    printnl tt
+    timer 1
+    endproc
+
+-------------------------------------------------------------------------------
+
+interrupt <pid> with <string> [on death]
+
+This command will interrupt the given process if possible setting its
+$int_mesg variable to the given string. If interruption is possible it does
+so and returns a 1 else it returns a 0. The on death clause will cause the
+process to interrupt the given process if it dies. If interruption is not
+possible at this point the wait_on_dint init option will decide whether the
+process hangs until it can interrupt or exits anyway.
+
+eg: proc main
+    var pid
+    onint from child intproc
+    spawn child pid
+    if pid=0
+       # Child interrupts parent
+       interrupt $ppid with "HELLO!"
+       exit 0
+    endif
+    while 1; wend  # Loop until child gets swapped in and sends interrupt
+    endproc
+
+    proc intproc
+    # Pid of interrupting process is first element in message
+    printnl "Parent got interrupt from: " [head $int_mesg"] 
+    printnl "Message: " [tail $int_mesg]
+    exit 0
+    endproc
+
+-------------------------------------------------------------------------------
+
+timer <seconds>
+
+This sets up the timer. When the timer expires its sends a timer interrupt
+to the process. If the process cannot be interrupted the timer interrupt is
+blocked until interruption is possible.
+
+eg: proc main
+    onint from timer timeprint
+    timer 1
+    while 1; wend 
+    endproc
+
+    proc timeprint
+    printnl [gettime time]
+    timer 1  # Reset timer
+    endproc
+
+-------------------------------------------------------------------------------
+
+ei [on/ignore <procedure>]
+di [on/ignore <procedure>]
+
+These commands enable and disable interrupts respecitively. If used without
+the options then they do this immediately. Using the 'on' option will cause
+Avios to enable/diable interrupts upon entering the given procedure. When
+exiting said procedure the interrupt state will be set back to what it was
+before the procedure was called. The 'ignore' option will unset anything
+set up the 'on' option.
+
+eg: proc main
+    di on sleepproc
+    onint from timer timerproc
+    timer 1
+    sleep 5; call sleepproc; sleep 5
+    endproc
+
+    proc timerproc
+    printnl [gettime time]
+    timer 1
+    endproc
+
+    proc sleepproc
+    printnl "Interrupts disabled"
+    sleep 5
+    printnl "Interrupts enabled"
+    endproc
+
+-------------------------------------------------------------------------------
+
+gettime sysboot/created/rawtime/date/usdate/rvdate/time/...
+        hours/mins/secs/wday/mday/month/year/dayname/monthname  [<rawtime>]
+
+This commands returns various times in various formats which mean the
+following:
+
+sysboot  : Raw time in seconds when Avios was booted (unaffected by optional arg).
+created  : Raw time when process making this call was created (as above).
+rawtime  : Current raw time in seconds from unix time(0) function (as above).
+date     : Date in day/month/year format as used in most of the world.
+usdate   : Date in month/day/year format as used in the USA.
+revdate  : Date in year/month/day (reverse) format.
+time     : Time in hours:mins:secs format.
+hour     : Hour of the day (0 - 23).
+mins     : Minute of the hour.
+secs     : Seconds of the minute.
+wday     : Numeric day of the week (1-7).
+mday     : Numeric day of the month. 
+month    : Numeric month of the year (1-12)
+year     : Four digit year (eg 1997)
+dayname  : Name of the day.
+monthname: Name of the month.
+
+The unix time() function normall returns the number of seconds since 1/1/1970.
+The optional rawtime argument to this command supplies an alternative number
+of seconds since this date for the commands to use.
+
+A simple clock:
+
+    proc main
+    while 1
+        print [format "%s\r" [gettime time]]
+        sleep 1
+    wend
+    endproc
+
+-------------------------------------------------------------------------------
+
+colour on/off
+
+This switches the conversion of Avios colour codes to ansi codes on and off
+in print statements. Even when switched on conversion will only take place if 
+the print is writing to STDIN or OUT. Conversion will not take place if
+we are writing to a file, a process created connect socket or an internal
+stream such as a message queue. In those cases the Avios colour codes will
+simply get passed as text. If colour is off and we are writing to STDIN etc
+then the Avios codes will be removed from the string before it is passed
+on. The default process colour setting is controlled by the colour_def init 
+file option.
+
+eg: colour on
+    printnl "~BR~FGRed background , green foreground."
+    colour off
+    printnl "~BR~FGRed background , green foreground? Not any more."
+
+-------------------------------------------------------------------------------
+
+connect <ip address> <port>
+
+This attempts to open a socket to the given address and returns a new
+stream identifier if successful else an error is generated (which can
+be trapped). Be warned that this command will hang the whole Avios system
+until it connects or gets an error.
+
+eg: if [trap [set sock [connect "localhost" 4000]]]
+        printnl "Unable to connect"; exit 0
+    endif
+    in sock
+    out sock
+    :
+
+-------------------------------------------------------------------------------
+
+echo on/off
+
+This switches echoing on and off for the STDIN of the process so passwords 
+can be entered and not be seen. This facility only works if the STDIN is
+linked to a socket and not the terminal.
+
+eg: print "Enter name> "; input name
+    echo off
+    print "Enter password> "; input pass
+    echo on
+
+-------------------------------------------------------------------------------
+
+

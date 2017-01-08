@@ -1,0 +1,18 @@
+# This sorts the entered list into order
+
+proc main
+var @str tmp i j
+
+print "Enter list> "
+input str
+for i 1 to [arrsize str]
+	for j i to [arrsize str]
+		if str:i > str:j
+			set tmp str#i 
+			set str#i str#j
+			set str#j tmp
+		endif
+	next
+next
+printnl str
+endproc

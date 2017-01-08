@@ -1,0 +1,58 @@
+# A very simple console program. I could make it flashier but I can't be
+# bothered.
+
+proc main
+var line comlist com
+
+set comlist "ps kill con"
+print [format "\n~BB*** AVIOS CONSOLE ***\n\n"]
+while 1
+	print ">"
+	input line
+	if line=""; continue; endif
+	set com [member comlist [head line]]
+	if [not com]
+		printnl "Unknown command";  continue;
+	endif
+	choose com
+		value 1; call ps_proc; break
+		value 2; call kill_proc [tail line]; break;
+	chosen
+wend
+endproc
+
+
+
+proc ps_proc
+var pid pname cnt
+
+print [format "\n~BB*** Processes at %s ***\n\n" [gettime time]]
+set cnt 0
+foreach pid pname in $pcs
+	printnl [format "~FY%-4d  ~FG%-10s  ~FT%s" pid pname [pcsinfo pid]]
+	inc cnt
+nexteach
+printnl [format "\nTotal of %d processes.\n" cnt]
+endproc
+
+
+
+proc kill_proc killid
+var pid pname
+
+if killid=""
+	printnl "Kill which process?";  return
+endif
+foreach pid pname in $pcs
+	if killid=pid
+		if [trap [kill pid]]
+			printnl "Unable to kill process.";  return
+		endif
+		printnl "Process killed."
+		return
+	endif
+nexteach
+printnl "Process does not exist."
+endproc	
+
+

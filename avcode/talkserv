@@ -1,0 +1,482 @@
+#
+# Talker server process. This is a simple example of how to implement a
+# talker system in Avios. This deals with all the commands and speech that
+# comes in from the clients , the clients themselves deal with the logons.
+#
+# Something to note here is that the pid of the client process is used as
+# the user identifier rather than their name as this keeps things simpler
+# as it saves translating the name into the users client process pid all the 
+# time.
+#
+
+alias 0 OK
+alias 20 MAX_LINES
+alias "talkclient" TALKC
+alias "passfile" PFILE
+alias "talkdata" DATADIR
+alias "Sorry - a system error has occured."  SYSERROR
+
+#--------------- Global variables --------------
+
+var @username @userdesc @userroom @userlines
+var @roomdesc @roomlinks @roomtopic @roomdata
+var @commands
+
+#--------------- Load room descriptions & links----------------
+
+&roomdata
+
+#------------------ Main procedure ------------------
+proc main
+var pid line word name mesg room
+
+set commands "who look go desc tell shout"
+set commands [addstr commands " topic read write public private help"]
+
+call count_messages 
+onint from nonchild deathproc
+di on write_room
+di on write_user
+in "MESG_Q"
+
+while 1
+	while $mesg_cnt
+		input pid line 
+		if $pcs:pid!=TALKC; continue; endif
+
+		### Check data type
+		set word [head line]
+		choose word
+			value "LOGON"
+			set name [elements line 2]
+			if username?name!=""
+				call write_user pid [format "\nYou are already logged on, killing other session...\n\n"]
+				call write_user username?name "EXIT"
+				set room userroom:username?name
+				call set_roomdata room 3 [sub [elements roomdata:room 3] 1]
+			endif
+			set username:pid name	
+			set userdesc:pid [tail [tail line]]
+			set userroom:pid "hallway"
+			set userlines:pid 0
+			call set_roomdata "hallway" 3 [add [elements roomdata:"hallway" 3] 1]
+			call exec_com pid "look"
+			call write_room "" pid [format "%s enters this world." name] 
+			break
+
+			value "SAY"
+			if [set mesg [tail line]]=""
+				if userlines:pid; call exec_com pid "read"; endif
+				break
+			endif
+			call write_user pid [format "You say: %s" mesg]
+			call write_user pid "PRM"
+			call write_room userroom:pid pid [format "%s says: %s" username:pid mesg] 
+			break
+
+			value "COM"
+			call exec_com pid [tail line]
+		chosen
+	wend
+wend
+endproc
+		
+
+
+#---- Count the number of messages in all the rooms boards ----
+proc count_messages
+var fd line room val cnt
+
+foreach room val in roomdata
+	if [trap [set fd [open to read [format "%s/%s.B" DATADIR room]]]]=OK
+		in fd
+		set cnt 0
+		input line
+		while [not $eof]; inc cnt; input line; wend
+		close fd
+		call set_roomdata room 2 cnt
+	endif
+nexteach
+endproc
+
+
+
+#---- Set data element in roomdata array ---
+proc set_roomdata room pos value
+set roomdata:room [overelem roomdata:room value pos]
+endproc
+
+
+#---- Send a message to a users process ----
+proc write_user pid mesg
+while [not [interrupt pid with mesg]]; wend
+endproc
+
+
+
+#---- This sends mesg to all talker clients (users) in the given room
+#---- except for except_pid. If room is "" then message is sent to all rooms.
+proc write_room room except_pid mesg
+var pid prog
+
+foreach pid prog in $pcs
+	if prog!=TALKC or pid=except_pid or [elements [pcsinfo pid] 8]="IMAGE"
+		continue
+	endif
+	if userroom:pid!=room and room!=""; continue; endif
+	call write_user pid mesg
+nexteach
+endproc
+
+
+
+#---- See if given room exists ----
+proc room_exists name
+var s v
+
+# Match whole name
+foreach s v in roomdesc
+	if s=name; return s; endif
+nexteach
+
+# Match partial name
+foreach s v in roomdesc
+	if [instr s name 1]=1; return s; endif
+nexteach
+endproc
+
+
+
+#---- We get sent here if a client died. ---=
+proc deathproc
+var pid s v room
+
+if [tail $int_mesg]!="DEAD"; return; endif
+set pid [head $int_mesg]
+foreach s v in username
+	if s=pid 
+		call write_room "" pid [format "%s leaves this world." username:pid]
+		set room userroom:pid
+		call set_roomdata room 3 [sub [elements roomdata:room 3] 1]
+		set username:pid ""
+		set userdesc:pid ""
+		set userroom:pid ""
+		return
+	endif
+nexteach
+endproc
+
+
+
+#---- This deals with the commands ----
+proc exec_com pid line
+var com s c
+
+set com [head line]
+
+if [not [member commands com]]
+	foreach s c in commands
+		if [instr c com 1]=1; set com c; break; endif
+	nexteach
+endif
+
+choose com
+	value "who";   call com_who pid;  break
+	value "look";  call com_look pid;  break
+	value "go";    call com_go pid [elements line 2];  break
+	value "desc";  call com_desc pid [tail line]; break
+	value "tell";  call com_tell pid [tail line];  break
+	value "shout"; call com_shout pid [tail line];  break
+	value "topic"; call com_topic pid [tail line];  break
+	value "read";  call com_read pid;  break
+	value "write"; call com_write pid [tail line];  break
+	value "public"
+	value "private"; call com_access pid com; break
+	value "help";  call com_help pid;  break
+
+	default
+	call write_user pid "Unknown command."
+chosen
+
+if userlines:pid; return; endif
+call write_user pid "PRM"
+endproc
+
+
+
+#---- "who" command ----
+proc com_who pid
+var pid2 name
+
+call write_user pid [format "\n~BB*** Current users at %s ***\n" [gettime time]]
+foreach pid2 name in username
+	if name!=""
+		call write_user pid [format "%s %s" name userdesc:pid2] 
+	endif
+nexteach
+call write_user pid ""
+endproc
+
+
+
+#---- "look" command ----
+proc com_look pid 
+var pid2 name uroom cnt priv
+var @pubpriv @a s r str
+
+set pubpriv "~FGPUBLIC~RS ~FRPRIVATE~RS"
+set uroom userroom:pid
+call write_user pid [format roomdesc:uroom]
+
+# Print room exits , private rooms have red names , else green
+set a roomlinks:uroom
+foreach s r in a
+	if [head roomdata:r]; set str [addstr str "~FR" r " "]
+	else; set str [addstr str "~FG" r " "]; endif
+nexteach
+call write_user pid [format "~FTExits are: %s\n" str]
+
+set cnt 0
+foreach pid2 name in username
+	if pid2!=pid and userroom:pid2=uroom
+		if cnt=0 
+			call write_user pid "~FTYou can see:~RS"
+			inc cnt
+		endif
+		call write_user pid [format "    %s %s\n" username:pid2 userdesc:pid2]
+	endif
+nexteach
+
+if cnt=0; call write_user pid [format "~FTYou are all alone here.\n"]; endif
+
+set priv [add [head roomdata:uroom] 1]
+set str [addstr "Access is currently " pubpriv#priv " and there are ~FM~OL" [elements roomdata:uroom 2] "~RS messages on the board."]
+call write_user pid str
+
+if roomtopic:uroom=""; call write_user pid "There is no current topic."
+else; call write_user pid [format "The topic is: %s" roomtopic:uroom]
+endif
+
+endproc
+
+
+
+#---- "go" command ----
+proc com_go pid newroom
+var uroom name 
+
+set uroom userroom:pid
+set name username:pid
+if newroom=""
+	call write_user pid "Go where?";  return
+endif
+call room_exists newroom
+if $result=""
+	call write_user pid "There is no such room.";  return
+else; set newroom $result
+endif
+if [not [member roomlinks:uroom newroom]]
+	call write_user pid "You can't get there from here.";  return
+endif
+if [head roomdata:newroom]
+	call write_user pid "That room is currently private.";  return
+endif
+call write_room newroom pid [format "%s enters from the %s." name uroom]
+set userroom:pid newroom	
+call write_room uroom pid [format "%s goes to the %s." name newroom]
+call com_look pid 
+endproc
+
+
+
+#---- "desc" command ----
+proc com_desc pid desc
+var infd outfd line
+
+if desc=""
+	call write_user pid "You must give a description.";  return;
+endif
+
+if [trap [set infd [open to read PFILE]]]
+	call write_user pid SYSERROR;  return
+endif
+
+if [trap [set outfd [open to write "temp"]]]
+	call write_user pid SYSERROR;  
+	close infd;  return
+endif
+
+in infd; out outfd
+input line
+while [not $eof]
+	if [elements line 2]=username:pid
+		printnl [elements line 1 2] " " desc
+	else; printnl line; endif
+	input line
+wend
+close infd outfd
+in "MESG_Q"; out "STDOUT"
+
+rename "temp" PFILE
+set userdesc:pid desc
+call write_user pid "Description set."
+endproc
+
+
+
+#---- "tell" command -----
+proc com_tell pid line
+var name
+
+if [count line]<2
+	call write_user pid "Tell who what?";   return
+endif
+
+set name [head line]
+set name [overstr name [upperstr [midstr name 1]] 1]
+if name=username:pid
+	call write_user pid "Talking to yourself is the first sign of madness!"
+	return
+endif
+
+if username?name=""
+	call write_user pid "There is no such user.";  return
+endif
+
+call write_user pid [format "You tell %s: %s" name [tail line]]
+call write_user username?name [format "~OL%s tells you:~RS %s" username:pid [tail line]]
+endproc
+
+
+
+#---- "shout" command -----
+proc com_shout pid mesg
+if mesg=""
+	call write_user pid "Shout what?";  return
+endif
+call write_user pid [format "You shout: %s" mesg]
+call write_room "" pid [format "~OL%s shouts:~RS %s" username:pid mesg]
+endproc
+
+
+
+#---- "topic" command -----
+proc com_topic pid topic
+if topic=""
+	call write_user pid "You must give a topic.";  return
+endif
+call write_user pid [format "Topic set to: %s" topic]
+call write_room userroom:pid pid [format "%s has set the topic to: %s" username:pid topic]
+set roomtopic:userroom:pid topic
+endproc
+
+
+
+#---- "read" command -----
+proc com_read pid 
+var fd line lcnt pcnt room
+
+set room userroom:pid
+if [trap [set fd [open to read [format "%s/%s.B" DATADIR room]]]]
+	call write_user pid "There are no messages on the board.";  return
+endif
+
+call write_room room pid [format "%s reads the message board." username:pid]
+if userlines:pid=0
+	call write_user pid [format "\n~BB*** The %s message board ***\n" room]
+endif
+
+# Read through file
+in fd
+set lcnt 0
+set pcnt 0
+while [not $eof] and pcnt<MAX_LINES 
+	input line
+	inc lcnt
+	if lcnt>userlines:pid
+		call write_user pid line
+		inc pcnt
+	endif
+wend
+close fd
+in "MESG_Q"
+if $eof; set userlines:pid 0
+else
+	set userlines:pid lcnt
+	call write_user pid "~RV*** Press any key to continue ***"
+endif
+endproc
+
+
+
+#---- "write" command -----
+proc com_write pid mesg
+var fd room board cnt
+
+if mesg=""
+	call write_user pid "Write what?";  return
+endif
+
+set room userroom:pid
+if [trap [set fd [open to append [format "%s/%s.B" DATADIR room]]]]
+	call write_user pid SYSERROR;  return
+endif
+out fd
+printnl [format "~FT[%s, %s]: ~RS~OL%s:~RS %s" [gettime date] [gettime time] username:pid mesg]
+close fd
+out "STDOUT"
+call write_user pid "You write the message on the board."
+call write_room room pid [format "%s writes a message on the board." username:pid]
+set cnt [add [elements roomdata:room 2] 1]
+call set_roomdata room 2 cnt
+endproc
+
+
+
+#---- "public" & "private" commands -----
+proc com_access pid com
+var room priv cnt
+
+set room userroom:pid
+set priv [head roomdata:room]
+
+if com="private"
+	if priv
+		call write_user pid "The room is already private.";  return
+	endif
+	set cnt [elements roomdata:room 3]
+	if cnt<2
+		call write_user pid "You need at least 2 people to make a room private."
+		return
+	endif
+	call write_user pid "Room set to ~FRPRIVATE."
+	call write_room room pid [format "%s has set the room to ~FRPRIVATE." username:pid]
+	call set_roomdata room 1 1
+	return
+endif
+
+if [not priv]
+	call write_user pid "The room is already public.";  return
+endif
+call write_user pid "Room set to ~FGPUBLIC."
+call write_room room pid [format "%s has set the room to ~FGPUBLIC." username:pid]
+call set_roomdata room 1 0
+endproc
+
+
+
+#--- "help" command
+proc com_help pid
+var i str
+
+call write_user pid [format "\n~BB*** Commands ***\n"]
+for i 1 to [count commands] 
+	set str [addstr str [format "%-10s " [elements commands i]]]
+	if [mod i 5]=0
+		call write_user pid str;  set str ""
+	endif
+next
+if str!="";  call write_user pid str;  endif
+call write_user pid [format "\n~FGRemember all commands start with a '.'\n"]
+endproc
+

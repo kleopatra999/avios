@@ -1,0 +1,38 @@
+proc main 
+var i line pid
+
+onint from nonchild intproc
+onint from child intproc2
+interrupt [add [sub $pid 1] 1] with "Self interrupt"
+spawn child pid
+if pid=0
+	printnl "PPID: " $ppid
+	printnl "REL: " [relation $ppid $pid]
+	# Child comes here
+	sleep 2
+	interrupt $ppid with "Child interrupting"
+	print ">"; input line
+	printnl "CHILD INPUT: " line
+	exit 1
+endif
+
+# Parent comes here
+printnl "CPID: " pid
+printnl "REL: " [relation pid $pid]
+sleep 1
+for i 1 to 5; printnl i; sleep 1; next
+interrupt pid with "Other interrupting"
+printnl "PARENT DONE"
+endproc
+
+
+proc intproc 
+printnl "Pid " $pid " got other interrupt"
+printnl "IM: " $int_mesg
+endproc
+
+
+proc intproc2
+printnl "Pid " $pid " got child interrupt"
+printnl "IM: " $int_mesg
+endproc

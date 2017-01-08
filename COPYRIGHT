@@ -1,0 +1,34 @@
+
+                       *** COPYRIGHT AND RESTRICTIONS ***
+
+This software is provided as is. It could and probably does have some minor
+bugs and I will not guarantee its reliability for long term non-stop operation
+and hence because of this I accept no liability for any problems that may
+arise from you using it. 
+
+    The Avios source code is copyright to me (Neil Robertson) but it is
+Freeware (NOT public domain) which means you can distribute it to anyone you 
+wish PROVIDING you stick to the restrictions that I make which is that you have 
+not modified the server source code (the whole point of Avios is that you code 
+in AviosPL, you do not alter the C code making up the server) as I DO NOT want 
+modified/hacked versions circulating. You are also NOT permitted to sell the 
+server source code or any files that come with it in its distribution tar file 
+but you can use Avios to run a pay to use system.
+     
+    All AviosPL programs distributed with the server are also freeware and
+as such the same restrictions apply to them as to the server code except
+that I'm not too bothered if you distribute modified versions as long as you
+don't try to sell these versions.
+
+    You are free to distribute any programs you write in AviosPL and since 
+you are the author of them their copyright belongs to you which means you can 
+even sell them if you can find a buyer. :)
+    
+    I ask for no royalties on either pay-to-use systems run by Avios or on
+any AviosPL code you sell.
+
+
+Neil Robertson
+
+August 1997
+

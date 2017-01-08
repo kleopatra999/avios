@@ -1,0 +1,191 @@
+
+                            *** VARIABLES ***
+
+AviosPL is a typeless language or if you prefer everything is stored as a
+string. That doesn't mean that all variables are the same however as you can
+have the following types:
+
+
+
+NORMAL
+------
+These are declared using the "var" command and their name and can be set to
+any value.
+
+eg: var tom dick
+    set tom "a string"
+    set dick 666
+
+
+
+ARRAYS
+------
+Arrays are declared by using the @ modifier in front of the variable name
+and are associative which means that the indexes can be words as well as 
+numbers. (Currently and for the forseable future they are 1 dimensional only
+but there are ways around this limitation).
+
+eg: set dick:"test" "Test string"
+
+The above would set the element indexed by "test" in the array dick to the
+string value following. If a variable (say 'a') had been set to "test" then
+the following would have the same affect:
+
+    set dick:a "Test string"
+
+Indexes cannot be the direct output of commands in this version however
+(though I intent to implement it at some point) so currently the following
+code is *ILLEGAL*:
+
+    set dick:[addstr "te" "st"] "Test string" 
+
+Reverse lookups can be done so once dick:"test" is set you could reset the
+element by doing this:
+
+    set dick?"Test string"  "Another string"
+
+You can also get the index itself:
+
+    printnl [dick?"Test string"]
+
+The ? operator tells the system to find the element which has the _value_ 
+given.
+
+The final array operator is # which gets the element by index _number_ which
+start at 1 _NOT_ 0 as in C.	
+
+eg: set dick:"test" "Test string"
+    set dick#1 "Another"
+    printnl dick:"test"
+
+Please note that you _cannot_ create a new element using this method , it
+will only work on existing elements so for instance if you have an array 'a'
+with 3 elements you cannot do: set a#4 "hello". This will give you an 
+Undefined subscript error.
+
+Arrays can be set in and retrieved in an alternative method to using the
+above operators by treating them as a list string.
+
+eg: var @a
+    set a "one two three"
+    printnl a:"1" " " a#2 " " a?"three"
+    printnl "--" a "--"
+
+
+
+POINTERS
+--------
+These can only be declared in a procedure parameter list and are declared by
+having a '*' in front of the variable name. They are set and read like any 
+other variable but anything done to them is actually done to the variable they 
+reference.
+
+eg: proc main
+    var tom @dick
+
+    set tom "ONE"
+    set dick:"test" "hello"
+
+    printnl tom "," dick:"test"
+    call testproc tom dick
+    printnl tom "," dick:"test"
+
+    endproc
+
+
+    proc testproc *a *@b
+    set v "TWO"
+    set b:"test" "world"
+    endproc
+
+
+
+SHARED VARIABLES
+----------------
+
+Global variables can be shared between processes (although only 1 process is 
+the actual owner) by use of the share command , eg: var a; share a
+Currently sharing is either all or nothing , either all processes can
+access the variable or none can. This may change in future releases. To
+access a shared variable you prepend its name with the process number of the
+owner of the variable plus a dot (the process number can be in a variable 
+itself
+
+eg: PROCESS 2                            PROCESS 3
+
+    var tom; share dick                  var dick;  share dick                           
+    proc main                            proc main
+    set tom 10                           set dick 20
+    sleep 1                              sleep 1
+    printnl "Process 3 var: " 3.dick     printnl "Process 2 var: " 2.tom
+    sleep 1                              sleep 1
+    endproc                              endproc
+
+A variable can be unshared using the unshare command. Remember that only 
+global variables can be shared as local variables are destroyed once the
+procedure they are in has exited.
+
+
+
+SYSTEM VARIABLES
+----------------
+
+There are quite a number of system variables in Avios (denoted by a prepended 
+'$' sign) all of which are read-only and are set internally by the system. They
+are either specific to the process referencing them or apply to the system as
+a whole.
+
+
+Systemwide ones:
+   $pcs - This array holds the list of process names indexed by process number.
+  
+   $pcs_count - Current number of processes (including images) on the system.
+     
+   $error - This array stores the system error strings indexed by error number.
+
+   $max_mesgs - Maximum number of messages allowed on a process message queue.
+
+   $version - Avios version number.
+
+Process specific ones:
+   $name - Name of the process.
+
+   $filename - Program filename of the process.
+
+   $pid - Process id which is a number. This is an Avios Id , not a unix one.
+
+   $ppid - Process id of the parent process. If it doesn't have one its zero.
+
+   $site - Current site process is connected to. 
+
+   $lport - Local port it is on as setup in the init file.
+
+   $rport - Current remote port the client the user is connecting to us with is
+            using.
+
+   $proc  - This is an array which stores the return values from procedures.
+            They are referenced using the procedure name as the array index.
+
+   $result - Stores the value returned from the most recent procedure call. 
+             This is a more convieniant method than using $proc:"<procname>".
+
+   $mesg_cnt - Count of the number of messages currently in processes message 
+               queue.
+
+   $int_mesg - Passed along with an interrupt.
+
+   $int_enabled - 1 or 0 depending on whether interrupts are enabled or 
+                  disabled (set using ei and di commands).
+
+   $in , $out - Names of the current input and output streams as set by the 
+                in and out commands. 
+
+   $print_ok - 0 if process tried to print to a non-blocking but locked or
+               full stream, otherwise 1.
+
+   $eof - Normally 0 this will change to 1 if a read operation is performed
+          on a file and the end of the file is then reached. 
+
+   $last_error - Set to the error number of the error last caught by a trap
+                 command.
+

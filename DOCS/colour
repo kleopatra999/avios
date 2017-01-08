@@ -1,0 +1,71 @@
+
+                              *** COLOUR ***
+
+Avios supports Ansi colour codes (the same ones as the NUTS talker system)
+and so can be used to send coloured messages to people using telnet clients
+that also support colour.
+
+    Colour commands are used to generate these colours and can be embedded in
+any string in an AviosPL program. When this string is sent out it will get
+translated into colour codes so long as the string is being sent to STDOUT
+and colour is turned on either via the init file or by the AviosPL "colour"
+command.
+
+    Bear in mind that if you're on a black and white or green screen terminal 
+all you'll get is various shades of grey/green instead of colours (if you get 
+anything at all). All the commands start with a ~ and are the following:
+
+RS - reset terminal to default colour status
+RV - reverse video
+OL - bold
+LI - blink/flash text (only the text flashes , not the background colour). 
+	This won't work on all terminals , some xterms simply set it to bold.
+UL - underline text, this doesn't work on all terminals.
+
+FK - set foreground colour to black
+FR - foreground red
+FG - green
+FY - yellow (though it looks an orangey brown on some systems)
+FB - blue
+FM - magenta/purple
+FT - turquoise/bright blue
+FW - white
+
+BK - set background colour to black
+BR - red
+BG - green
+BY - yellow
+BB - blue
+BM - magenta
+BT - turqouise
+BW - white
+
+    So if for instance you wanted some flashing magenta "hello" on a green
+background followed by a non-flashing blue "world" on a black background you 
+would do the following:
+
+printnl "~FM~LI~BGhello ~RS~FBworld"
+
+    Notice the use of the reset (RS) to reset the background to black and the 
+text to non-flashing (assuming you're using a white text on black screen VDU). 
+Also note that an automatic reset is sent after every \n and \0 so the colours 
+set do not carry over to the next line as long as colour is set to ON.
+
+    If you are writing to a file or a process created socket (using connect)
+then colour commands are left untouched and are passed out with the string.
+If you are writing to STDOUT and colour is OFF the commands will be stripped
+from the string but no codes will replace them. If colour is ON codes will
+replace them. You can print out colour commands as themselves if writing to 
+STDOUT by prepending them with a forward slash '/'. For example:
+
+printnl "/~FMtest"
+
+This would print out '~FMtest' to the screen minus the slash.
+
+
+*** REMEMBER ***
+
+Not everyones terminal supports ANSI colour codes. It'll either ignore
+them or will produce some very strange effects. Bear this in mind if you
+decide to set the user colour default to ON.
+

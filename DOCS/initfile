@@ -1,0 +1,119 @@
+                          *** THE INIT FILE ***
+
+The initialisation file is read by the server as soon as it boots up. It sets
+up a number of parameters (all of which have built in defaults) and gives the
+list of processes to start upon boot and as such there are 2 sections which have
+the headers PARAMETERS: and PROCESSES: (the colon is required).
+
+The PARAMETERS section has the following parameters all of which are optional:
+
+code_path <path> 
+    This is the path where the AviosPL programs themselves reside in. 
+    Having this saves you having to use a full pathname in the PROCESSES
+    section. Placing a terminating '/' on the path is optional as it will be 
+    automatically added anyway. Default is an empty string.
+
+root_path <path>
+    This is the path that will be internally prepended to any filenames used 
+    by any AviosPL file commands. This is done so that you can set some
+    subdirectory to be the main directory that programs access. Placing a 
+    terminating '/' on the path is optional as for code_path. Default is an 
+    empty string.
+
+allow_ur_path
+    If YES then a unix root pathname is allowed in file operations.
+    eg: /etc/passwd. If a starting '/' is in the pathname and this is set
+    then the pathname is untouched else the first '/' is removed and the
+    root_path prepended to the path if one exists. Default is YES.
+
+kill_any YES/NO
+    If YES then any process can kill any other process (except image processes 
+    and system_pcs). If NO then it can only kill its own descendent processes.
+    Default is NO.
+
+child_die YES/NO
+    If YES then when a process dies any of its child processes will die too 
+    (which will cause a cascade effect if they in turn have child processes). 
+    If NO then the child processes will have their $ppid set to 0.
+    Default is NO.
+
+ignore_sigterm YES/NO
+    If YES then SIGTERMS are noted but ignored, else Avios quits with a status 
+    dump. Default is NO.
+
+wait_on_dint YES/NO
+    If YES then a process will not completely terminate until it has 
+    interrupted the process specified in an "interrupt <pid> with <string> on 
+    death" command. If NO then it will attempt to interrupt but if 
+    unsuccessfull will exit anyway. Default is YES.
+
+colour_def ON/OFF
+    If ON then any colour commands in strings sent to STDOUT by processes will 
+    be converted to ansi colour codes by default. If OFF then colour commands 
+    will be stripped from the strings but no ansi codes will replace them. This
+    option can be overridden by the AviosPL "colour" command. Default is ON.
+
+max_processes <number>
+    This is the maximum number of processes allowed at any one time (not 
+    including the system_dummy process). Default is 100.
+
+max_mesgs <number>
+    This is the maximum number of messages a process can have in its message
+    queue at one time. If another process attempts to write to the queue when 
+    its reached this limit its status is set to OUTPUT_WAIT and it is
+    suspended until a write is possible. Default is 20.
+
+max_errors <number>
+    This is the maximum number of runtime errors a process can have before
+    it is terminated. If the value is 0 a process will never terminate due
+    to an error. Default is 1.
+
+exit_remain <number>
+    This is the number of iterations of the Avios main loop that an exiting
+    process remains for and it gives other processes a chance to check the
+    final status of a process before it exits. Default is 10.
+
+swapout_after <number>
+    This is the average number of instructions/commands a process can
+    execute before it is swapped out. The number for any particular instance
+    may vary as a process cannot be swapped out if it is executing a nested
+    command. If it does execute more than this number however this is taken
+    into account next time round where the system tries to swap it out
+    after swapout_after-(last count - swapout_after) instructions. eg if
+    swapout_after = 10 and last count was 13 then next time it will be allowed
+    10 - (13 - 10) = 7 instructions. Of course if it overuns this time aswell
+    things get more complex so its not quite this simple but you get the idea.
+    Default is 10.
+
+connect_timeout <seconds>
+    The one AviosPL command that can hang the whole system is the "connect"
+    command while it waits to connect to the remote host. Writing the C code
+    so this could be done in non-blocking mode was a nightmare so I gave up
+    and kept it blocking. Because of this I have provided a timeout parameter 
+    for the command which will interrupt it after the given number of seconds 
+    to allow the system to continue. The default is to wait for the TCP timeout
+    which could be quite a long time (minutes perhaps?)
+
+
+
+The PROCESSES section has the following format:
+<I/O source> <process filename> <process name> [<command line arguments>]
+<I/O source> <process filename> <process name> [<command line arguments>]
+<I/O source> <process filename> <process name> [<command line arguments>]
+:
+:
+
+The I/O source is either: 
+    TERM  - Process runs on the terminal (ie uses unix stdin , out & err).
+    BACK  - Process is a background one and has no standard I/O.
+   <port> - The port number the image of the process will listen on.
+
+The process filename is the name of the file where the process source code
+is kept whilst the process name is the name the process will be given when
+it is running (you could for example have 2 or more processes with the
+same source file being called different things so you can differential 
+between them). 
+
+Finally the arguments are passed as command line parameters to the processes 
+main procedure as argument count and the actual arguments.
+

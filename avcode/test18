@@ -1,0 +1,16 @@
+proc main
+var line term
+
+colour off
+set term [open to readwrite "/dev/tty"]
+out term
+do
+	input line
+	printnl "Got: " line
+until line=""
+in term
+print "Enter response> ";  input line
+close term
+out "STDOUT"
+print [format "<html>\n<body>\n%s\n</body>\n</html>\n" line]
+endproc

@@ -1,0 +1,36 @@
+
+                            *** LISTS ***
+
+AviosPL has some usefull list processing functions, the ideas of which I have
+nicked from certain other languages. First of all you must be away that a list
+in Avios is really just a string that has words/elements in it seperated by
+whitespace (whitespace being any ascii code < 33 for simplicity but not 
+including 0). So for example the string "hello there world" can also be
+treated as a list with 3 elements in it. Elements are counted from 1 so
+"hello" is element 1, "there" is 2 and "world" is 3.
+   Please note that the list commands do not care how much whitespace is in
+the string so "   hello   there   world   " is considered equivalent to the
+previous example by the list commands.
+
+   The commands which work on lists are the following:
+        head, rhead, tail, rtail, insertelem, overelem, member, subelem, 
+elements, count, match & unique.
+
+There are no addelem or mulelem commands as the string commands addstr and
+mulstr can carry out the appropriate operations. To add an element to a list 
+for example: 
+
+     set list "hello there"
+     :
+     :
+     set list [addstr list " " "world"]
+
+Or to multply a list:
+     set list "hello there "  # Need space on the end as separator
+     :
+     :
+     set list [mulstr list 3] 
+   
+
+Please read the commands documentation to see how the list commands work.
+

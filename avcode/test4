@@ -1,0 +1,32 @@
+# This tests reverse lookups in arrays among other things.
+
+proc main
+var @arr @arr2 subscr val
+var i j
+
+set arr:"one" "tests"
+set arr:"two" "are"
+set arr:"three" "0"
+set arr2:"wun" "here"
+set arr2:"too" "again"
+
+set arr?"tests" "notests"
+printnl arr?arr:"one"
+printnl arr?"0"
+printnl arr2?"again"
+
+for i 1 to 3
+	printnl "--" i "--"
+	foreach subscr val in arr
+		printnl subscr "," val
+		printnl
+		for j 1 to 5; print j; next
+		printnl
+		foreach subscr val in arr2
+			printnl subscr "," val
+		nexteach
+		printnl
+	nexteach
+next
+
+endproc

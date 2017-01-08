@@ -1,0 +1,35 @@
+                            *** INTERRUPTS ***
+
+Interrupts are used to signal another process to jump to a pre-specified
+procedure. If you look at the talker server and client code you can see that
+the server interrupts the client when it has data for it. 
+
+   Interrupts are controlled by the following commands: onint, interrupt, 
+timer, ei & di. "onint" sets up what to do when an interrupt is received,
+"interrupt" causes an interrupt to be sent, "timer" specifies when a timer
+interrupt will be received , "ei" enables interrupts and "di" disables them.
+
+The system variable $int_mesg stores the pid of the interrupting process and
+the data it sent to us (if a timer interrupt is received it has the value
+"0 TIMER") so for example if process 2 interrupts process 3 with the
+following command: interrupt 3 with "this is a test" , then the $int_mesg
+variable for 2 will be set to "2 this is a test". To extract the pid of the
+interrupting process simply do: set pid [head $int_mesg]
+
+Processes can receive three different types of interrupts in Avios and they 
+are the following:
+
+CHILD_INT 
+   An interrupt from a child process of the current process. A child process
+   is considered only to be an *immediate* descendent , not a grandchild etc.
+
+NONCHILD_INT 
+   An interrupt from any process that is not a child one.
+ 
+TIMER_INT
+   An interrupt from the timer.
+
+All these states are very short lived so you will hardly ever see them as
+the status of a process. Read up further on the commands in the commands 
+documentation file.
+

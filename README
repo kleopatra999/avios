@@ -1,0 +1,98 @@
+
+                       *** The Avios REAME file. ***
+
+This is just a short introduction to Avios as most of the documentation
+you will need is in the DOCS directory.
+
+The OS
+------
+   Avios stands for A VIrtual Operating System, that is it loads and runs
+multiple processes written in the AviosPL language which can interact with
+each other and the outside world just as in a real OS. The system itself
+appears however as a single process to the Unix operating system (Avios is
+a Unix only program at the moment) as it does not fork off processes to run
+its own internal processes , rather it runs them all sequentially swapping
+them in and out as appropriate.
+   
+   The main reason for Avios existing is not simply to have a virtual OS as
+by itself this concept isn't that usefull. Its raison d'etre is that it
+provides a way for people with no C experience to set up an internet server
+(or even mulitple ones) and then only having to code in AviosPL which is a
+far simpler language than C as well as not having to worry about socket
+coding details. As you will see from the rest of the documentation processes
+can be set to run on any TCP port (UDP is not supported) simply by entering
+one line in the init file.
+
+
+The language
+------------
+   AviosPL is a procedural language and so you should not find it hard to 
+pick up after you have looked at the example programs and the documentation.
+It does have limitations which are more due to limits of my own coding abilities
+rather than it being designed that way. Some parts of the language are clunky
+(for example all maths is done using commands), others are perhaps a bit 
+inconsistent so some of you may not like the language. Well , theres nothing
+I can do about that. If I had the coding abilities of someone like Larry Wall
+(wrote Perl) or Lars Penj (sp? wrote the original LPmud server) then the 
+language could have been a lot better but I don't so you're going to have to 
+live with it or go use something else. Having said that it does have a lot of 
+features which other languages don't such as associative arrays (mappings)
+which can be used to store relations (as they can have reverse lookups done
+on them) and it also has some complex list processing functions.
+
+
+Example code
+------------
+   With this server comes some example applications and test programs for you 
+to run and look through to get a feel of how things are done. The main 
+application is a simple talk server and talk client programs for you to use as 
+a starting point to perhaps build your own. It is intended as a demonstrator
+not as a fully functioning talker so don't be disappointed when you run it
+(though if you're really not bothered about features it could be used as is)
+if you've been using NUTS or some other talker. Another application is a simple
+web server program which you should be able to see shows how a separate web
+server and GCI back end can be built using Avios. I say simple as there is
+no database connectivity and downloading gif and jpeg files seems to be a 
+problem for some reason (though I intend to fix this bug in the next release).
+   When you run Avios you will see that the syslog says that the talkserv 
+program gets open() errors. This is perfectly normal as talkserv is simply
+trying to check some message board files which don't yet exist.
+   I have also included a load of test programs I used whilst developing the
+system (though not all as I managed to delete half by mistake :( . You may 
+find them usefull as a guide to how some of the features work. There is also a 
+short program called "pcs" which you can use as a type of console to view the 
+processes in Avios and if kill_any is set to yes you can use its kill command 
+to kill any non-image ones.
+
+
+Restrictions
+------------
+Avios doesn't currently support floating point numbers and hence its maths
+functions are limited to integer operations. I hope to add floating point
+support in the next release.
+
+
+Documentation
+-------------
+   Because theres so much to document with this system there may be minor
+errors and/or omissions in the documentation. Please bear with me on this as
+theres been a lot to write.
+   Now go and read the COPYRIGHT file then continue on and read the rest of
+the documentation. I would suggest starting with the comp_and_run file which
+tells you how to compile and run Avios so you can see what its like then move
+on to more in depth stuff perhaps starting with the processes and initfile
+docs. If you have any questions concerning any part of the package or your 
+have found some suspected bugs please email me about it (but *please* RTFM
+first and make sure you're not getting it wrong!!)
+
+
+Neil Robertson
+
+August 1997
+
+Email: neil@ogham.demon.co.uk
+
+
+NB:
+There are *no* backdoors in this system unlike in NUTS. There is however
+a harmless easter egg, see if you can find it :)

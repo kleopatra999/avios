@@ -1,0 +1,57 @@
+
+                           *** STREAMS ***
+
+Streams are the equivalent of file pointers in C. They are the route through
+which processes get input and output from various sources.
+
+   A process when its created gets 3 built in streams which are STDIN, STDOUT
+and MESG_Q. The first 2 are the standard input and output of the process
+which will point to whatever the process had its I/O set up as in the init file
+(or if its a spawned or exec'd process it will inherit them from the creating
+process). So for example if a process is set up as a TERM process STDIN & 
+STDOUT will point to the unix stdin and stdout, if its set up on a port then
+it points to the socket that is connected to the port and lastly if its set
+up as a background (BACK) process they are unset so if you try to use them you
+will get an error. "MESG_Q" is the message queue of the process and normally
+it would only read off this queue to get messages from other process but you
+can write to it if you want. Please note that there is no standard error as
+I felt there was little need for it in this sort of enviroment.
+
+   STDIN & STDOUT cannot be altered or deleted , they are fixed for the 
+lifetime of the program but you can change where the program gets its input
+and output from using the "in" and "out" commands. See the commands doc file
+for further information on these.
+   
+   Streams can be created using the "open" or "connect" commands so it is
+possible for you to read and write to files and sockets.
+
+eg: var fp
+    set fp [open to read "testfile"]
+    in fp
+    :
+    :
+    close fp
+    in "STDIN"
+
+The above creates a stream called "fp" and sets its input to come from that
+stream, reads data from the file and then resets its input to point back to
+"STDIN". The below example does the same except it uses a socket stream and
+also sets its output to write to the socket aswell:
+
+    var sock
+    set sock [connect "localhost" 25]
+    in sock; out sock
+    :
+    :
+    close sock
+    in "STDIN";  out "STDOUT"
+    
+Streams created for files have the form "FILE_<filename>" where <filename> is 
+the name of the file opened and ones created for sockets have the form
+"SOCK_<descriptor num>" where the descriptor_num is the number of the unix
+socket/file descriptor created by the C socket() function.
+
+   The variable $eof is set to 1 when an input is made but the end of a file 
+is reached, when a socket has been closed by the remote host or when there are
+no more messages on the message queue.
+

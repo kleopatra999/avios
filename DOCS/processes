@@ -1,0 +1,100 @@
+                              *** PROCESSES ***
+
+
+Process types
+-------------
+
+As far as the init file is concerned there are 3 types of processes which
+are differentiated by the I/O parameter in the init files PROCESSES section. 
+These are:
+
+Terminal processes:
+    These are created by using the TERM option and this means that their
+    standard I/O (the streams "STDIN" and "STOUT") is through the tty/terminal 
+    device that Avios was booted from. This are usefull for testing code or
+    if you simply want to use Avios as a command line interpreter.
+
+Background processes:
+    Created using the BACK option these run in the background and the standard 
+    I/O streams are not linked to any I/O channels.
+
+Image processes:
+    If a process has a port number as the option then an image process is
+    created upon boot. What this means is that the program code is loaded
+    into memory but NOT RUN and a socket is opened on the specified port.
+    If something connects to that socket a copy is taken of the process
+    image and THIS is run having had is standard I/O directed down the 
+    socket returned from the accept() call. So for example if you set up
+    a process on port 4000 you would have an image process listening on this
+    port and when something connected you would still have the image listening
+    but you would also have a running process too. Image processes cannot
+    be killed.
+
+
+The first two types of processes and any processes spawned from an image
+processes are all running processes, ie they are not images.
+
+
+Process status
+--------------
+
+Processes can have a number of status's which are listed below:
+
+IMAGE:
+    The process is an image process. This processes status will never change.
+
+RUNNING: 
+    The process is currently running (ie not halted) though this doesn't
+    mean that its currently swapped in.
+
+OUTPUT_WAIT:
+    The process has been halted by the system as it is trying to write to 
+    a message queue thats is currently locked or full.
+
+INPUT_WAIT:
+    The process is waiting for input from a blocking stream.
+
+CHILD_DWAIT:
+    The process is waiting for any of its child processes to die. This 
+    is status is set by the "wait" command.
+
+SPEC_DWAIT:
+    The process is waiting for a specific process to die. This status is
+    set by the "waitpid" command.
+
+SLEEPING:
+    The process is currently sleeping. This is set by the "sleep" command.
+
+CHILD_INT:
+NONCHILD_INT:
+TIMER_INT:
+    The process has been interrupted by a child, non-child (ie not one of its 
+    own children) processes or by the timer. These states exist for a very
+    short time (usually one complete iteration of the Avios main loop) so 
+    you'll rarely catch a process in one of them.
+
+EXITING:
+    The process is exiting and is either counting down its exit_remain 
+    count or it is waiting to send an interrupt to another process to 
+    notify it of its death (ie an "interrupt <pid> with <string> on death"
+    interrupt).
+
+
+System dummy
+------------
+
+Process number 1 is the system dummy process. It isn't a process in the
+true sense of the word as it has no code associated with it , what it does
+is to act as a repository (and hence owner) of all the global system variables
+such as $version etc. You cannot do anything to or with this process (including
+killing it) so I will not mention it further.
+
+
+Exiting
+-------
+
+if a process exits by using the exit command (which takes an exit code as an
+argument) then the syslog will say the process exited with a process code.
+If the process exited due to an error or it reached "endproc" in the main
+procedure then the syslog will say it exited with a system code. The codes
+given match the errors stored in the $error array.

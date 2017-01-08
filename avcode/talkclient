@@ -1,0 +1,193 @@
+#
+# Talker client process. This deals with the logon then just acts as a
+# dumb terminal sending all the input to the server process.
+#
+
+alias "STDIN" STDIN
+alias "STDOUT" STDOUT
+alias "talkdata/passfile" PFILE
+alias "- a newbie" NEWDESC
+alias 1 TRUE
+alias 0 FALSE
+alias 0 OK
+
+var name desc servpid
+
+
+#------------------- Main procedure ---------------------
+proc main
+var line tmp
+
+printnl "PID: " $pid
+print [format "\n~BB~FW*** ~FGWelcome to the ~FRAVIOS~FG talker ~FW***\n\n"]
+
+### Log them on
+call get_name_pass
+if $result=FALSE
+	print [format "\nLogon failed.\n\n"];  exit 0
+endif
+print [format "\n\n~FGYou are logged in.\n\n"]
+
+### Connect to server process
+if [set servpid $pcs?"talkserv"]=""
+	print [format "\n~FR~LIError - Unable to connect to server process!\n\n"]
+	exit 1
+endif
+out servpid
+printnl "LOGON " name " " desc
+
+### Set int on death
+interrupt servpid with "DEAD" on death
+
+### Main loop
+out STDOUT
+onint from nonchild intproc
+while 1
+	input line
+	out servpid
+	if [midstr line 1]="."; call commands [midstr line 2 [strlen line]]
+	else; printnl [format "SAY %s" line]; endif
+	out STDOUT
+wend
+endproc
+
+
+
+#---- This is the part that does the actual login ----
+proc get_name_pass
+var pass pass2 
+var fp wrong file_exists cnt line
+var pass_err
+
+set pass_err "\n\n\r~FYPassword must be 3 or more characters.\n\n"
+
+### See if file exists
+if [trap [set fp [open to read PFILE]]]!=OK
+	set file_exists 0
+else 
+	set file_exists 1
+endif
+
+set cnt 1
+while 1
+	if cnt>3
+		if file_exists; close fp; endif
+		return FALSE
+	endif
+	set wrong 0
+	in STDIN
+        
+	do
+		print "Enter name: "; input name
+	until name!=""
+	if [strlen name]<3
+		print [format "\nName must be 3 or more characters.\n\n"]
+		inc cnt;  continue
+	endif
+	set name [overstr name [upperstr [midstr name 1]] 1]
+
+	# Search through password file for our logon
+	if file_exists
+		in fp
+		cseek start 0  # reset pointer to top of file
+	endif
+	while file_exists and [not $eof]
+		input line
+		if [elements line 2]=name
+			in STDIN
+			echo off
+			do
+				print "Enter password: ";  input pass
+			until pass!=""
+			echo on
+			if [strlen pass]<3
+				print [format pass_err];  inc wrong;  break
+			endif
+			if [crypt pass "NU"]=[head line]
+				close fp
+				set desc [tail [tail line]]
+				return TRUE
+			endif	
+			print [format "\n\n~FRIncorrect password.\n\n"]
+			inc cnt
+			inc wrong
+			break;
+		endif
+		in fp
+	wend
+	if wrong; continue; endif
+
+	### New user
+	in STDIN
+	printnl "New user..."
+	echo off
+	do
+		print "Enter password: "; input pass
+	until pass!=""
+	if [strlen pass]<3
+		print [format pass_err];  inc cnt;  echo on;  continue;
+	endif
+
+	do
+		print [format "\n\rPlease re-enter password: "];  input pass2
+	until pass2!=""
+	echo on
+	if [strlen pass2]<3
+		print [format pass_err];  inc cnt;  continue;
+	endif
+	if pass!=pass2
+		print [format "\n\n\r~FRPasswords do not match.\n\n"];  
+		inc cnt;  continue;
+	endif
+
+	### Write out new login to passfile
+	if file_exists
+		close fp;  set fp [open to append PFILE]
+	else
+		set fp [open to write PFILE]
+	endif	
+	out fp
+	printnl [crypt pass "NU"] " " name " " NEWDESC  
+	out STDOUT
+	close fp
+	set desc NEWDESC
+	return TRUE
+wend
+endproc
+
+
+
+#---- This deals with data coming from the server process ----
+proc intproc
+var oldout mesg pid tl age
+
+if [set pid [head $int_mesg]]!=servpid; return; endif
+
+set oldout $out
+out STDOUT
+if [set tl [tail $int_mesg]]="EXIT"; exit 0; endif
+if tl=""; printnl
+else
+	set mesg [midstr $int_mesg [add [strlen pid] 2] [strlen $int_mesg]]
+	if mesg="PRM"
+		set age [gettime time [sub [gettime rawtime] [gettime created]]]
+		print [format "~FT<%s, %s, %s>\n" [midstr [gettime time] 1 5] [midstr age 1 5] name]
+	else; printnl mesg
+	endif
+endif
+out oldout
+endproc
+
+
+
+#---- If its a "quit" command deal with it locally else pass it to the
+#---- server process.
+proc commands line
+
+if [instr "QUIT" [upperstr [head line]]]=1
+	out STDOUT; print [format "\n\nBye bye...\n\n"]
+	exit 0
+endif
+printnl [format "COM %s" line]
+endproc
+

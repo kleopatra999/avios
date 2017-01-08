@@ -1,0 +1,22 @@
+PARAMETERS:
+code_path avcode
+#root_path .
+allow_ur_path YES
+kill_any YES
+child_die YES
+ignore_sigterm NO
+wait_on_dint YES
+colour_def ON
+max_processes 100
+max_mesgs 6
+#max_errors 10
+exit_remain 1
+swapout_after 10
+connect_timeout 10
+
+   
+PROCESSES:
+TERM pcs pcs
+8080 webserv webserv
+4000 talkclient talkclient
+BACK talkserv talkserv

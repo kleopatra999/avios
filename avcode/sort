@@ -1,0 +1,74 @@
+# This goes through the password file and prints out all its elements
+# after it has sorted the entries by name order. You'll need to have
+# allow_ur_path set to YES in the init file for this to work.
+
+alias 1 TRUE
+
+proc main
+var @a @linearray st line pos cnt s v i
+
+# Open file and set stream
+if [trap [set st [open to read "/etc/passwd"]]]
+	printnl "Unable to open file.";  exit 1;
+endif
+in st
+
+# Go through password file and load each line as an element of 
+# the array linearray
+set cnt 1
+while TRUE
+	input line
+	if $eof; break; endif
+
+	# Go through individual line and replace colons with spaces
+	set pos 1
+	while TRUE
+     	set pos [instr line ":" pos]
+		if pos=0; break; endif 
+		set line [overstr line " " pos]
+	wend
+
+	# Print result
+	set linearray:cnt line
+	inc cnt
+wend
+close st
+
+call sort_array linearray [arrsize linearray]
+call print_data linearray 
+
+endproc
+
+
+
+# Sort the array containing the lines of the file into order
+proc sort_array *@a cnt
+var i j name1 name2 tmp
+
+for i 1 to cnt
+	for j i to cnt
+		set name1 [midstr a#i 1 [instr a#i " " 1]]
+		set name2 [midstr a#j 1 [instr a#j " " 1]]
+		if name1>name2;
+			set tmp a#i;  set a#i a#j; set a#j tmp
+		endif
+	next
+next
+endproc
+
+
+
+# Print out the individual fields of each line entry
+proc print_data @a
+var s v @ela
+
+foreach s v in a
+	printnl 
+	printnl "Line: " s
+	set ela v
+	foreach s v in ela
+		printnl "   " s ": " v
+	nexteach
+nexteach
+endproc
+

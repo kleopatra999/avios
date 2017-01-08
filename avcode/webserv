@@ -1,0 +1,62 @@
+#--- This process serves one request then exits as HTTP does not use
+#--- a continuous connection system. A process will be spawned for
+#--- every browser connect. This server is very simple and simply
+#--- serves files and hence it will not accept any sort of input from 
+#--- the browser nor will it serve binary gif/jpeg/java files due to the
+#--- way Avios works though it works fine with Ascii Javascript code.
+
+alias 0 OK
+
+proc main
+var line
+
+# Colour codes will fuck things up
+colour off 
+
+# First line contains the actual command , following lines just
+# contain config stuff which I don't care about as this is such
+# a simple server
+input line
+if [upperstr [head line]]="GET"; call get_file [elements line 2]
+else; call html_print "ERROR" "Your browser sent a load of bollocks."
+endif
+endproc
+
+
+
+#--- Send a short message to the browser ---
+proc html_print title data
+printnl "<HTML><TITLE>" title "</TITLE>"
+printnl "<BODY>" data "</BODY></HTML>"
+exit 0
+endproc
+
+
+
+#--- Write a file out to the browser ---
+proc get_file path
+var fd line
+
+# Set path to correct value
+if path="/"; set path "index.html"; endif
+if [midstr path 1]="/"
+	set path [midstr path 2 [strlen path]]
+endif
+set path [addstr "html/" path]
+
+# Load file
+if [trap [set fd [open to read path]]]!=OK
+	call html_print "ERROR" "File not found."
+endif
+
+# Assume file is already in HTML format so just send it out
+in fd
+input line
+while [not $eof]
+	printnl line;  input line
+wend
+in "STDIN"
+close fd
+
+exit 0
+endproc

@@ -1,0 +1,67 @@
+<head>
+<script>
+
+/*** A ball bouncing in a textarea box by Neil Robertson , 16/11/96 ***/
+
+bstr="                    \n"+
+     "                    \n"+
+     "                    \n"+
+     "                    \n"+
+     "                    \n"+
+     "                    \n"+
+     "                    \n"+
+     "                    \n"+
+     "                    \n"+
+     "                    \n";
+
+
+ballx=3;
+bally=0;
+addx=1;
+addy=1;
+pos=3;
+pos2=pos;
+speed=100;
+
+
+/*** Insert char into string ***/
+function insert_char(str,ch,pos)
+{
+var tmp1=str.substring(0,pos);
+var tmp2=str.substring(pos+1,str.length);
+str=tmp1+ch+tmp2;
+return str;
+}
+
+
+/*** Bounce the ball ***/
+function bounce()
+{
+bstr=insert_char(bstr,"O",pos);
+document.form.text.value=bstr;
+ballx+=addx;
+bally+=addy;
+if (ballx==19 || ballx==0) addx=-addx;
+if (bally==9 || bally==0) addy=-addy;
+pos=ballx+bally*20+bally;
+bstr=insert_char(bstr," ",pos2);
+pos2=pos;
+setTimeout("bounce()",speed);
+}
+
+</script>
+</head>
+
+<body onLoad="bounce()">
+<font color=blue><h1>A Bouncing Ball</h1></font>
+
+This is a simple little routine written in JavaScript<br>
+to bounce a ball around a textarea box. <br>
+
+<form name="form">
+<textarea name="text" cols=20 rows=10></textarea><br>
+<font color=green><input type=button value="<< Slower" onClick="speed+=5;">
+<font color=red><input type=button value="Faster >>" onClick="speed-=5; if (speed<0) speed=0;">
+</form>
+
+</body>
