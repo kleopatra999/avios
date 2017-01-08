@@ -2,7 +2,7 @@
                               *** VERSIONS ***
 
 The Avios version number consists of 3 fields: The major , minor and patch
-levels. eg: 1.0.0 , means major version 1, minor version 0 and patch level
+levels. eg: 1.4.0 , means major version 1, minor version 4 and patch level
 0. If a small bug fix or some minor change has been done to the code then
 I'll up the patch level. If new features have been added or old ones changed
 drastically then I'll up the minor version number. If however the code has had
@@ -14,47 +14,74 @@ Versions relased so far (and the release date):
    Initial release.
 
 1.0.1 (18/8/97)
-   Added pause_on_sigtstp init file option.
-   evaluate_complete_expression() now does lazy evaluation.
-   Various bug fixes and minor code changes and additions done including 
+ - Added pause_on_sigtstp init file option.
+ - evaluate_complete_expression() now does lazy evaluation.
+ - Various bug fixes and minor code changes and additions done including 
        -DLINUX compile option.
 
 1.1.0 (8/9/97)
-   Added include file nesting.
-   Commands can now be split over multiple lines using '\'
-   Replaced main command switch statement with function pointers
-   Added vcall, unmatch & printlog commands.
-   Added iexec command allowing inline code execution.
-   Added "term" and "back" options to exec, iexec and spawn commands.
-   Made spawn and exec "child" and "orphan" options optional.
-   Added -DNO_CRYPT compile option and avios_crypt() function in case unix
+ - Added include file nesting.
+ - Commands can now be split over multiple lines using '\'
+ - Replaced main command switch statement with function pointers
+ - Added vcall, unmatch & printlog commands.
+ - Added iexec command allowing inline code execution.
+ - Added "term" and "back" options to exec, iexec and spawn commands.
+ - Made spawn and exec "child" and "orphan" options optional.
+ - Added -DNO_CRYPT compile option and avios_crypt() function in case unix
        crypt() function not available.
-   Made other minor code changes and bug fixes and tidied code up a bit.
+ - Made other minor code changes and bug fixes and tidied code up a bit.
 
 1.2.0 (22/9/97)
-   Added replstr & replelem commands.
-   Added tset command allowing atomic test and set operations on shared 
+ - Added replstr & replelem commands.
+ - Added tset command allowing atomic test and set operations on shared 
        variables.
-   Added tuning_delay init file option.
-   Added $prog array variable.
-   Changed gettime commands "sysboot" option to "boottime".
-   Minor bug fixes and code mods.
+ - Added tuning_delay init file option.
+ - Added $prog array variable.
+ - Changed gettime commands "sysboot" option to "boottime".
+ - Minor bug fixes and code mods.
 
 1.3.0 (15/10/97)
-   Added matchstr, usleep, utimer, chmod & stat commands.
-   Added wildcard pattern matching to dir command.
-   Added $build, $uname and $unixuser system variables.
-   Added real line and filename info to the $prog array which may cause 
+ - Added matchstr, usleep, utimer, chmod & stat commands.
+ - Added wildcard pattern matching to dir command.
+ - Added $build, $uname and $unixuser system variables.
+ - Added real line and filename info to the $prog array which may cause 
        incompatabilities with any 1.2.0 programs using it.
-   Added "usecs" option to gettime command which provides the current number of
+ - Added "usecs" option to gettime command which provides the current number of
        microseconds in the second.
-   Added -q quite bootup mode command line option.
-   Minor bug fixes.
+ - Added -q quite bootup mode command line option.
+ - Minor bug fixes.
 
 1.3.1 (28/10/97)
-   Added optional arguments to break and continue commands and created $break
+ - Added optional arguments to break and continue commands and created $break
        and $cont variables.
-   Fixed bug where subscripts of shared arrays were not being set properly when 
+ - Fixed bug where subscripts of shared arrays were not being set properly when 
        set using another array.
-   Moved the mainloop() function to a more logical position in the code.
-   Other minor code changes.
+ - Moved the mainloop() function to a more logical position in the code.
+ - Other minor code changes.
+
+1.4.0 (3/12/97)
+ - Added /dev/tty device support allowing processes to run using a tty device 
+       as their standard I/O.
+ - Added bwa (bitwise AND), bwo (bitwise OR), bwx (bitwise XOR), bsl (bit 
+       shift left), bsr (bit shift right) and cpl (ones complement) commands.
+ - Added mkdir & rmdir commands.
+ - Added halt & restart commands which allow you to halt a process (the kill 
+       command now returns different values too) which required adding the
+       HALTED process state.
+ - Added acontinue (alternative continue) command which behaves differently to 
+       continue command inside a choose structure. See DOCS/commands.
+ - Added "fi" command as an alternative to "endif".
+ - Added enhanced_dump init file option will if YES will cause status dump to
+       contain more process statistics.
+ - Added device support to spawn , exec and iexec commands.
+ - Added ~CL clear screen print code
+ - Tset command can now do expression evaluation eg: <= > with variable to
+       be set and the given test value.
+ - Individual process swapout value now allowed in init file.
+ - Run count and swapout fields added to pcsinfo command output.
+ - Made write_syslog a variadic function removing the need for sprintf(text etc
+ - AviosPL command words can now be in capitals in programs.
+ - Fixed bug in continue relating to do-until loop (loop would never exit if
+       continue refering to said loop was used within it)
+ - Minor miscellanious code mods.
+

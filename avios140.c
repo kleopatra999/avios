@@ -1,11 +1,11 @@
 /****************************************************************************
-                            AVIOS version 1.3.1
+                            AVIOS version 1.4.0
          A VIrtual Operating System, Copyright (C) Neil Robertson 1997
 
-                     Version date: 28th October 1997
+                     Version date: 3rd December 1997
 
  Created out of blood and sweat using incantations of the C after dusk and 
- in dark dungeons found in London, England from January to October 1997. 
+ in dark dungeons found in London, England from January to December 1997. 
 
  Please read the README & COPYRIGHT files.
 
@@ -18,6 +18,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #ifdef _AIX
 #include <sys/select.h>
 #endif
@@ -30,6 +31,7 @@
 #include <sys/ioctl.h>
 #endif
 #include <time.h>
+#include <termio.h>
 #include <fcntl.h>
 #include <netdb.h>
 #include <netinet/in.h>
@@ -39,11 +41,12 @@
 #include <pwd.h>
 #include <errno.h>
 
-#include "avios131.h"
+#include "avios140.h"
 
-#define VERSION "1.3.1"
+#define VERSION "1.4.0"
 
 struct streams *get_stream();
+int write_syslog(char *, ...);
 
 
 /*** The main procedure which initialises the system then calls the
@@ -110,8 +113,7 @@ if (be_daemon) {
 	ioctl(2,TIOCNOTTY,NULL);  
 #endif
 	}
-sprintf(text,"*** System booted with Unix PID %d ***",getpid());
-write_syslog(text);
+write_syslog("*** System booted with Unix PID %d ***",getpid());
 
 setup_signals();
 mainloop();
@@ -169,6 +171,7 @@ for(i=1;i<argc;++i) {
 /*** Initialise system stuff and non process specific variables ***/
 init_system()
 {
+umask(0);  /* So permissions with mkdir work properly */
 srand((int)time(0));
 boottime=0;
 
@@ -188,6 +191,7 @@ child_die=NO;
 wait_on_dint=YES;
 pause_on_sigtstp=YES;
 allow_ur_path=YES;
+enhanced_dump=NO;
 
 connect_timeout=0; /* 0 means wait for TCP timeout */
 tuning_delay=0;
@@ -339,8 +343,9 @@ char line[ARR_SIZE+1],w1[ARR_SIZE+1],w2[ARR_SIZE+1],*s;
 char *coms[]={
 "code_path","root_path","colour_def","allow_ur_path",
 "kill_any","child_die","ignore_sigterm","wait_on_dint",
-"pause_on_sigtstp","max_errors","max_mesgs","max_processes",
-"exit_remain","swapout_after","connect_timeout","tuning_delay"
+"pause_on_sigtstp","enhanced_dump","max_errors","max_mesgs",
+"max_processes","exit_remain","swapout_after","connect_timeout",
+"tuning_delay",
 };
 
 fgets(line,ARR_SIZE,fp);
@@ -359,21 +364,21 @@ while(!feof(fp)) {
 		return line_num;  
 		}
 	s=w1; while(*s) {  *s=tolower(*s);  ++s;  }
-	if (!strcmp(w1,"the_ode")) the_ode();
+	if (!strcmp(w1,"waffle")) waffle();
 
-	if (!strcmp(w2,"NO")) yesno=0;
-	else if (!strcmp(w2,"YES")) yesno=1;
-		else yesno=-1;
+	if (!strcmp(w2,"NO") || !strcmp(w2,"no")) yesno=0;
+	else if (!strcmp(w2,"YES") || !strcmp(w2,"yes")) yesno=1;
+	else yesno=-1;
 
-	for(i=0;i<16;++i) {
+	for(i=0;i<17;++i) {
 		if (!strcmp(coms[i],w1)) {
 			val=atoi(w2);
 
 			/* This looks yucky, but it works so fuck style... */
-			if (i>2 && i<9 && yesno==-1) goto ERROR;
-			if (i>8 && !isinteger(w2,0)) goto ERROR;
- 			if (i>9 && i<14 && val<1) goto ERROR;
-			if (i>=14 && val<0) goto ERROR;
+			if (i>2 && i<10 && yesno==-1) goto ERROR;
+			if (i>9 && !isinteger(w2,0)) goto ERROR;
+ 			if (i>10 && i<15 && val<1) goto ERROR;
+			if ((i==10 || i>14) && val<0) goto ERROR;
 
 			switch(i) {
 				case 0: 
@@ -389,9 +394,11 @@ while(!feof(fp)) {
 				break;
 
 				case 2:
-				if (!strcmp(w2,"ON")) colour_def=1;
-				else if (!strcmp(w2,"OFF")) colour_def=0;
-					else goto ERROR;
+				if (!strcmp(w2,"ON") || !strcmp(w2,"on")) 
+					colour_def=1;
+				else if (!strcmp(w2,"OFF") || !strcmp(w2,"off")) 
+					colour_def=0;
+				else goto ERROR;
 				break;
 
 				case 3: allow_ur_path=yesno;  break;
@@ -400,14 +407,15 @@ while(!feof(fp)) {
 				case 6: ignore_sigterm=yesno; break;
 				case 7: wait_on_dint=yesno; break;
 				case 8: pause_on_sigtstp=yesno;  break;
+				case 9: enhanced_dump=yesno;  break;
 
-				case 9: max_errors=val;  break;
-				case 10: max_mesgs=val;  break;
-				case 11: max_processes=val;  break;
-				case 12: exit_remain=val;  break;
-				case 13: swapout_after=val;  break;
-				case 14: connect_timeout=val;  break;
-				case 15:
+				case 10: max_errors=val;  break;
+				case 11: max_mesgs=val;  break;
+				case 12: max_processes=val;  break;
+				case 13: exit_remain=val;  break;
+				case 14: swapout_after=val;  break;
+				case 15: connect_timeout=val;  break;
+				case 16:
 #ifndef NO_USLEEP
 				tuning_delay=val;  break;
 #else
@@ -418,7 +426,7 @@ while(!feof(fp)) {
 			break;
 			}
 		}
-	if (i==16) {
+	if (i==17) {
 		fprintf(stderr,"INIT ERROR: Invalid option \"%s\" on line %d.\n",w1,line_num);
 		exit(-1);
 		}
@@ -431,25 +439,30 @@ exit(-1);
 
 
 
-/* I wonder what this could be? */
-the_ode()
+/*** Yackety yack ***/
+waffle()
 {
 char *data="\
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\
-Xijmf!bmm!bspvoe!uif!tupof!uifz!xbudi!jo!tuvoofe!tjmfodf-!nbhjd!tqbslt\
-!gspn!uif!uif!psjhjobm!gfsnbnfou-!usbqqfe!cfuxffo!xpsmet!opx!cvso!joup\
-!dpmpvsfe!csjmmjbodf-!gspn!cfgpsf!uif!ebxo!pg!nbo!uijt!qpxfs!jt!tfou/!\
-!B!tiveefs!spdlt!uif!dmfbsjoh!boe!uif!esvjetupof!tqmjut!btvoefs-!b!cmb\
-tu!pg!ipu!xjoe!boe!uifo!b!tubscfbn!lojgft!uif!tlz-!jmmvnjobujoh!uif!Bw\
-jpt!gpsftu!jo!b!hiptumz!sbjocpx!ivf-!tpnfuijoh!gpsnt!ijhi!bcpwf-!hmpxj\
-oh!sfe!mjlf!b!hjbou!gjsfgmz/!!Uif!pckfdu!efdfoet!boe!uif!gpsftu!dsfbuv\
-sft!sfusfbu-!uif!usbwfmmfs!boe!qbdlqpoz!uipvhi!tuboe!uifjs!hspvoe-!xbj\
-ujoh!gps!uif!sfwfmbujpo!uibu!xjmm!tpmwf!uif!rvftu-!cvu!xifo!uif!mjhiu!\
-gbeft!uifz!tff!b!sfe!fzfe!ebslipvoe/!!#J!IBWF!CFFO!USJDLFE#!tipvut!uif\
-!usbwfmmfs!#UIFSF!JT!OP!RVFTU#-!gps!uipvhi!b!vtfgvm!tmbwf!gps!ijt!nbtu\
-fs!vtfgvmoftt!ibt!bo!foe-!boe!ijt!nbtufs!ibe!ijt!pxo!nbtufs!xip!sfrvjs\
-ft!b!tbdsjgjdf-!tp!up!uif!Hsfbu!Efnpo(t!nbx!uijt!ebslipvoe!nvtu!ijt!tp\
-vm!opx!tfoe////////!!UIF!FOE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
++++!Bwjpt!2/5/1-!Dpqzsjhiu!)D*!Ofjm!Spcfsutpo!2::8!+++!!!!!!!!!!!!!Uij\
+t!jt!Bwjpt-!B!WJsuvbm!Pqfsbujoh!Tztufn!eftjhofe!up!svo!po!upq!pg!Vojy!\
+boe!qspwjef!b!tjnqmf!xbz!up!xsjuf!UDQ!tfswfs!qsphsbnt!)boe!opx!bmtp!ep\
+ft!uif!tbnf!gps!uuz!efwjdft*/!Ju!xbt!xsjuufo!cz!nf!)Ofjm!Spcfsutpo*!gs\
+pn!Kbovbsz!up!Efdfncfs!2::8!nbjomz!up!qspwf!up!nztfmg!uibu!J!dpvme!xsj\
+uf!tpnfuijoh!mjlf!uijt!cvu!bmtp!up!gjmm!jo!uif!ujnf!cfuxffo!evmm!qspkf\
+du!bttjhonfout!bu!xpsl!;*/!Gps!uiptf!pg!zpv!xip!ibwf!vtfe!qsfwjpvt!wfs\
+tjpot!boe!bsf!xpoefsjoh!xibut!ibqqfofe!up!uif!tupsz!uibu!vtvbmmz!bqqfb\
+st!jo!uijt!fbtufs!fhh!-!xfmm!-!fsss!-!J!sbo!pvu!pg!jefbt!tp!J!foefe!ju\
+!jo!2/4/1/!Ifodf!zpv(sf!hfuujoh!uijt!xbggmf!jotufbe!;*/!Guq!tjuft!gps!\
+uijt!tpguxbsf!bsf!dvssfoumz!guq/ddt/ofv/fev0qvc0nve0tfswfst0njtd0bwjpt\
+!boe!guq/efnpo/dp/vl0qvc0vojy0njtd0bwjpt/!Jg!zpv!ibwf!boz!ojdf!uijoht!\
+up!tbz!bcpvu!uijt!tztufn!qmfbtf!fnbjm!nf!bu!ofjmAphibn/efnpo/dp/vl!cvu\
+!jg!zpv!ibwf!boz!obtuz!uijoht!up!tbz!zpv!dbo!hp!tipwf!(fn!;*!Uibolt!nv\
+tu!hp!up!uif!mbet!bu!xpsl!xip!usjfe!pvu!nz!Bwjpt!uftu!qsphsbn!jodmvejo\
+h!Cpccz-!Sjdibse-!Nbsujo!boe!Kfbo!boe!bozpof!pvu!uifsf!jo!ofu!mboe!xip\
+!vtft!uijt!tztufn/!Bozxbz!-!mbdljoh!boznpsf!tvjubcmf!jotqjsbujpo!J(n!h\
+pjoh!up!rvju!opx!xijmf!J(n!bifbe/!Fokpz/!;*!!!!!!!!!!!!!!!!!!!!!!!!!!!\
+!!!!!!!!!!!!!/////";
 
 char *sptr,*cptr,*ptr;
 int spaces,i;
@@ -485,10 +498,12 @@ parse_process_section(fp,line_num)
 FILE *fp;
 int line_num;
 {
+struct streams *st;
+char line[ARR_SIZE+1],*argv[MAX_ARGC+1];
+char filename[100],pid[30],devname[100];
+char *s,*s2,*swpos,c;
 int i,ret,argc,option;
-int port,new_pid,images,back;
-char line[ARR_SIZE+1],*argv[MAX_ARGC+1],filename[100],pid[30];
-char *s,*s2,c;
+int port,dev,new_pid,images,back,swapout;
 
 /* Loop through init file */
 images=0;
@@ -521,20 +536,36 @@ while(!feof(fp)) {
 		/* Check options */
 		switch(option) {
 			case 0:
-			back=0;  port=0;
+			/* First see if we've got a swapout value */ 
+			if (swpos=(char *)strchr(s,',')) {
+				if ((swapout=atoi(++swpos))<1) {
+						fprintf(stderr,"INIT ERROR: Invalid swapout value \"%s\" on line %d.\n",swpos,line_num);
+						exit(-1);
+						}
+				*(swpos-1)='\0';	
+				}
+			else swapout=0;
+
+			/* Now check where its to be run */
+			back=0;  port=0;  dev=0;
 			if (strcmp(s,"TERM") && strcmp(s,"term")) {
 				if (!strcmp(s,"BACK") || !strcmp(s,"back")) 
 					back=1; 
 				else {
-					if ((port=atoi(s))<1 || 
-					     port>65535 ||
-					     !isinteger(s,0)) {
-						fprintf(stderr,"INIT ERROR: Invalid port \"%s\" on line %d.\n",s,line_num);
-						exit(-1);
+					if (isinteger(s,0)) {
+						if ((port=atoi(s))<1 || port>65535) {
+							fprintf(stderr,"INIT ERROR: Invalid port \"%s\" on line %d.\n",s,line_num);
+							exit(-1);
+							}
+						}
+					else {
+						if (!strncmp(s,"/dev/",5)) strcpy(devname,s);
+						else sprintf(devname,"/dev/%s",s);
+						dev=open_char_device(devname,line_num);
 						}
 					}
 				}
-			if (be_daemon && !port && !back) {
+			if (be_daemon && !port && !back && !dev) {
 				fprintf(stderr,"INIT ERROR: Cannot have terminal processes if the system is to run as a daemon on line %d.\n",line_num);
 				exit(-1);
 				}
@@ -584,12 +615,15 @@ while(!feof(fp)) {
 		if (!qbm) printf("image");  
 		images++;  
 		}
-	else {
-		if (!qbm) {
-			if (back) printf("background"); else printf("terminal");
+	else if (!qbm) {
+			if (back) printf("background"); 
+			else if (dev) printf("device (%s)",devname);
+			else printf("terminal");
 			}
+ 	if (!qbm) {
+		printf(" process %d (%s)\n",new_pid,argv[0]);
+		if (swapout) printf("   Swapout_after set to %d\n",swapout);
 		}
- 	if (!qbm) printf(" process %d (%s)...\n",new_pid,argv[0]);
 
 	if (create_process(argv[0],new_pid)!=OK) {
 		fprintf(stderr,"INIT ERROR: Memory allocation error on line %d.\n",line_num);
@@ -602,13 +636,18 @@ while(!feof(fp)) {
 		}
 	else {
 		if (back) set_string(&current_pcs->site,"<BACK>");
+		else if (dev) {
+				sprintf(text,"<%s>",devname);
+				set_string(&current_pcs->site,text);
+				}
 		else set_string(&current_pcs->site,"<TERM>");
 		current_pcs->status=RUNNING;
 		}
 	set_string(&current_pcs->filename,filename);
+	if (swapout) current_pcs->swapout_after=swapout;
 
 	/* Load the actual program */
-	if (!qbm) printf("   Loading program file \"%s\"...\n",filename);
+	if (!qbm) printf("   Loading program file \"%s\"\n",filename);
 	real_line=-1;
 	if ((ret=process_setup(filename,argc,argv,0))!=OK) {
 		if (real_line!=-1) {
@@ -624,6 +663,12 @@ while(!feof(fp)) {
 		get_stream("STDIN")->external=-1;
 		get_stream("STDOUT")->external=-1;
 		}
+	else if (dev) {
+			(st=get_stream("STDIN"))->external=dev;
+			st->device=1;
+			(st=get_stream("STDOUT"))->external=dev;
+			st->device=1;
+			}
 	current_pcs->pc=current_proc->start_pos;
 	save_process_state(current_pcs,1);
 
@@ -633,11 +678,47 @@ while(!feof(fp)) {
 	fgets(line,ARR_SIZE,fp);
 	}
 fclose(fp);
+
 if (process_count==1) { /* 1 cos always have system dummy process */
 	fprintf(stderr,"INIT ERROR: PROCESSES section is empty.\n");
 	exit(-1);
 	}
 if (!qbm) printf("\nAll processes loaded: %d real, %d images.\n\n",process_count-images-1,images);
+}
+
+
+
+/*** Open a character device to use as standard I/O for the process ***/
+open_char_device(name,line_num)
+char *name;
+int line_num;
+{
+struct stat fs;
+struct termio tio;
+int fd;
+
+/* Stat device to make sure its a character device */
+if (stat(name,&fs)==-1) {
+	fprintf(stderr,"INIT ERROR: Cannot stat device %s on line %d: %s\n",name,line_num,sys_errlist[errno]);
+	exit(-1);
+	}
+if ((fs.st_mode & S_IFMT)!=S_IFCHR) {
+	fprintf(stderr,"INIT ERROR: %s is not a character device on line %d.\n",name,line_num);
+	exit(-1);
+	}
+
+/* Now open it */
+if ((fd=open(name,O_RDWR))==-1) {
+	fprintf(stderr,"INIT ERROR: Cannot open device %s on line %d: %s\n",name,line_num,sys_errlist[errno]);
+	exit(-1);
+	}
+
+/* Set it to canonical (buffered) mode (probably is by default anyway) */
+ioctl(fd,TCGETA,&tio);
+tio.c_lflag |= ICANON;
+ioctl(fd,TCSETA,&tio);
+
+return fd;
 }
 
 
@@ -678,13 +759,15 @@ switch(sig) {
 	break;
 
 	case SIGSEGV:
-	write_syslog("PANIC!: SIGSEGV (segmentation fault) occured; exiting...");
+	signal(SIGSEGV,SIG_DFL);
+	write_syslog("PANIC!: A SIGSEGV (segmentation fault) occured; exiting...");
 	break;
 
 	/* You'll never get a bus error with linux on a PC since the x86 
 	   hardware does not generate the equivalent hardware interrupt */
 	case SIGBUS:
-	write_syslog("PANIC!: SIGBUS (bus error) occured; exiting...");
+	signal(SIGBUS,SIG_DFL);
+	write_syslog("PANIC!: A SIGBUS (bus error) occured; exiting...");
 	}
 /* If we're still booting then just exit. */
 if (!boottime) exit(-1);
@@ -699,6 +782,7 @@ icnt=0;
 write_syslog("");
 write_syslog("PROCESS STATUS DUMP:");
 write_syslog("   PID NAME      PPID STATUS       FILE        LINE COMMAND");
+if (enhanced_dump) write_syslog("       (ENHANCED)");
 
 /* This doesn't list the system_dummy process , no point in doing so */
 for(pcs=first_pcs->next;pcs!=NULL;pcs=pcs->next) {
@@ -721,14 +805,17 @@ for(pcs=first_pcs->next;pcs!=NULL;pcs=pcs->next) {
 		fname[10]='.';  fname[11]='.';
 		}
 
-	sprintf(text,"%s %-10s %3d %-12s %-12s %3d %s",line,pcsname,ppid,status_name[pcs->status],fname,pcs->prog_word[pcs->pc].real_line,pcs->prog_word[pcs->pc].word);
-	write_syslog(text);
+	write_syslog("%s %-10s %3d %-12s %-12s %3d %s",line,pcsname,ppid,status_name[pcs->status],fname,pcs->prog_word[pcs->pc].real_line,pcs->prog_word[pcs->pc].word);
+	if (enhanced_dump) {
+		write_syslog("       ( 1: %d, %s, %d, %d, %d, %d )",pcs->created,pcs->site,pcs->remote_port,pcs->int_enabled,pcs->interrupted,pcs->colour);
+		write_syslog("       ( 2: %lu, %lu, %lu, %lu )",pcs->run_cnt[0],pcs->run_cnt[1],pcs->run_cnt[2],pcs->run_cnt[3]);
+		write_syslog("");
+		}
 
 	if (pcs->status==IMAGE) ++icnt;
 	++pcnt;
 	}
-sprintf(text,"Total of %d processes (%d real, %d images).",pcnt,pcnt-icnt,icnt);
-write_syslog(text);
+write_syslog("Total of %d processes (%d real, %d images).",pcnt,pcnt-icnt,icnt);
 write_syslog("");
 
 /* If ^Z caught then pause else exit */
@@ -744,6 +831,7 @@ if (sig==SIGTSTP) {
 	}
 uptime();
 write_syslog("*** System halted: All processes killed. ***");
+reset_echoing();
 exit(-1);
 }
 
@@ -814,12 +902,11 @@ int line_num;
 struct sockaddr_in bind_addr;
 int size,on;
 
-if (!qbm) printf("   Creating socket on port %d...\n",new->port);
+if (!qbm) printf("   Creating socket on port %d\n",new->port);
 
 /* Create socket */
 if  ((new->listen_sock=socket(AF_INET,SOCK_STREAM,0))==-1) {
-	sprintf(text,"INIT ERROR: Socket creation error on line %d.",line_num);
-	perror(text);  
+	fprintf(stderr,"INIT ERROR: Socket creation error on line %d: %s\n",line_num,sys_errlist[errno]);
 	exit(-1);
 	}
 
@@ -833,15 +920,13 @@ bind_addr.sin_family=AF_INET;
 bind_addr.sin_addr.s_addr=INADDR_ANY;
 bind_addr.sin_port=htons(new->port);
 if (bind(new->listen_sock,(struct sockaddr *)&bind_addr,size)==-1) {
-	sprintf(text,"INIT ERROR: Socket bind() error on line %d.",line_num);
-	perror(text);  
+	fprintf(stderr,"INIT ERROR: Socket bind() error on line %d: %s\n",line_num,sys_errlist[errno]);
 	exit(-1);
 	}
 
 /* Make it listen for connections */
 if (listen(new->listen_sock,20)==-1) {
-	sprintf(text,"INIT ERROR: Socket listen() error on line %d.",line_num);
-	perror(text);  
+	fprintf(stderr,"INIT ERROR: Socket listen() error on line %d: %s\n",line_num,sys_errlist[errno]);
 	exit(-1);
 	}
 }
@@ -898,15 +983,13 @@ for(pt=first_port;pt!=NULL;pt=pt->next) {
 		/* Accept connection */
 		size=sizeof(struct sockaddr_in);
 		if ((accept_sock=accept(pt->listen_sock,(struct sockaddr *)&acc_addr,&size))==-1) {
-			sprintf(text,"ERROR: Socket accept() error on port %d for process \"%s\": %s",pt2->port,pt2->process->name,sys_errlist[errno]);
-			write_syslog(text);
+			write_syslog("ERROR: Socket accept() error on port %d for process \"%s\": %s",pt2->port,pt2->process->name,sys_errlist[errno]);
 			continue;
 			}
 
 		/* Set socket to non-blocking */
 		if ((fcntl(accept_sock,F_SETFL,O_NONBLOCK))==-1) {
-			sprintf(text,"ERROR: Socket fcntl() error on port %d for process \"%s\": %s",pt2->port,pt2->process->name,sys_errlist[errno]);
-			write_syslog(text);
+			write_syslog("ERROR: Socket fcntl() error on port %d for process \"%s\": %s",pt2->port,pt2->process->name,sys_errlist[errno]);
 			close(accept_sock);
 			continue;
 			}
@@ -914,9 +997,8 @@ for(pt=first_port;pt!=NULL;pt=pt->next) {
 		/* Spawn all processes sharing same port */
 		for(pt2=pt;pt2!=NULL;pt2=pt2->next) {
 			if (pt2->listen_sock!=pt->listen_sock) continue;
-			if ((ret=spawn_process(pt2->process,0,0,0))!=OK) {
-				sprintf(text,"ERROR: Unable to spawn process \"%s\": %s.",pt2->process->name,error_mesg[ret]); 
-				write_syslog(text);
+			if ((ret=spawn_process(pt2->process,0,0,0,0,NULL))!=OK) {
+				write_syslog("ERROR: Unable to spawn process \"%s\": %s.",pt2->process->name,error_mesg[ret]); 
 				close(accept_sock);
 				continue;
 				}
@@ -939,8 +1021,7 @@ for(pt=first_port;pt!=NULL;pt=pt->next) {
 			get_stream("STDIN")->external=accept_sock;
 			get_stream("STDOUT")->external=accept_sock;
 
-			sprintf(text,"Connection on %d from %s:%s; spawned process %d (%s).",pt->port,current_pcs->site,port,current_pcs->pid,current_pcs->name);
-			write_syslog(text);
+			write_syslog("Connection on %d from %s:%s; spawned process %d (%s).",pt->port,current_pcs->site,port,current_pcs->pid,current_pcs->name);
 			}
 		} /* end if */
 	}
@@ -959,6 +1040,7 @@ char *name;
 int pid;
 {
 struct process *pcs;
+int i;
 
 if ((pcs=(struct process *)malloc(sizeof(struct process)))==NULL) 
 	return ERR_MALLOC;
@@ -1001,6 +1083,7 @@ pcs->pid=pid;
 pcs->status=IMAGE;
 pcs->old_status=IMAGE;
 pcs->pc=0;
+pcs->swapout_after=swapout_after;
 pcs->over=0;
 pcs->local_port=0;
 pcs->remote_port=0;
@@ -1028,6 +1111,7 @@ pcs->colour=colour_def;
 pcs->err_cnt=0;
 pcs->exit_cnt=0;
 pcs->input_vnum=1;
+for(i=0;i<4;++i) pcs->run_cnt[i]=0;
 
 /* Initialise structure pointers */
 pcs->prog_word=NULL;
@@ -1150,9 +1234,10 @@ return set_variable("$pcs_count",NULL,text,1);
      that I can think of to do this. And yes I know it doesn't check every
      call for malloc errors, if the system runs out of memory then it'll
      probably crash elsewhere anyway :) ***/
-spawn_process(par,child,preserve,type)
+spawn_process(par,child,preserve,type,dev,devname)
 struct process *par;
-int child,preserve,type;
+int child,preserve,type,dev;
+char *devname;
 {
 struct process *cur,*new;
 struct procedures *proc,*newproc,*oldproc;
@@ -1194,6 +1279,11 @@ switch(type) {
 
 	case 2:
 	set_string(&new->site,"<BACK>");
+	break;
+
+	case 3:
+	sprintf(text,"<%s>",devname);
+	set_string(&new->site,devname);
 	}
 
 /* Do the simple bit copying. Some of these should not need to be copied since
@@ -1204,6 +1294,7 @@ new->pid=new_pid;
 new->num_words=par->num_words;
 new->status=par->status;
 new->old_status=par->old_status;
+new->swapout_after=par->swapout_after;
 new->over=0;
 new->eof=par->eof;
 new->pc=par->prog_word[par->pc].end_pos+1;
@@ -1377,6 +1468,7 @@ for(st=first_stream;st!=NULL;st=st->next) {
 		goto ERROR;
 
 	/* Newly created stream is last on list */
+	last_stream->device=st->device;
 	last_stream->block=st->block;
 	last_stream->echo=st->echo;
 	last_stream->con_sock=st->con_sock;
@@ -1426,6 +1518,13 @@ switch(type) {
 	set_variable("$rport",NULL,"0",1);
 	get_stream("STDIN")->external=-1;  
 	get_stream("STDOUT")->external=-1;
+	break;
+
+	case 3:
+	set_variable("$lport",NULL,"0",1);
+	set_variable("$rport",NULL,"0",1);
+	get_stream("STDIN")->external=dev;  
+	get_stream("STDOUT")->external=dev;
 	}
 
 /* Set system process array entry */
@@ -1673,15 +1772,20 @@ int hours,mins,secs;
 pcs=current_pcs;
 if (pcs->exit_cnt++<exit_remain) return;
 
-/* See if we're to interrupt another process on death. */
-if (pcs->death_pid && (ipcs=get_process(pcs->death_pid))!=NULL) {
-	/* See if we can interrupt it. */
+/* If we're to interrupt another process on death see if we can interrupt it. 
+   If its already exiting itself just continue else we may need to wait if 
+   wait_on_dint set depending on its status. */
+if (pcs->death_pid && 
+    (ipcs=get_process(pcs->death_pid)) &&
+    ipcs->status!=EXITING) {
+
+	/* Can we interrupt process? */
 	if (!ipcs->int_enabled ||
 	    ipcs->interrupted ||
 	    ipcs->status==CHILD_INT || 
 	    ipcs->status==NONCHILD_INT ||
 	    ipcs->status==TIMER_INT ||
-	    ipcs->status==IMAGE) {
+	    ipcs->status==HALTED) {
 		/* No we can't at the moment */
 		if (wait_on_dint) return; /* MUST interrupt before we die */
 		else goto SKIP;
@@ -1716,8 +1820,7 @@ else sprintf(text,"Process %d (%s) exited with system code %d.",pcs->pid,pcs->na
 secs=(int)(time(0) - pcs->created);
 hours=secs/3600;  secs%=3600;
 mins=secs/60;  secs%=60;
-sprintf(text,"%s Runtime: %02d:%02d:%02d",text,hours,mins,secs);
-write_syslog(text);
+write_syslog("%s Runtime: %02d:%02d:%02d",text,hours,mins,secs);
 
 /* Free some stuff */
 free(pcs->name);
@@ -1776,7 +1879,7 @@ for(st=first_stream;st!=NULL;st=stnext) {
 	stnext=st->next;
 	if (st->owner==pcs) {
 		/* See if another process is referencing it (eg if a mesg q). 
-		   Another processes instream should never bet set to one of 
+		   Another processes instream should never be set to one of 
 		   our streams but check anyway just in case. */
 		for(pcs2=first_pcs;pcs2!=NULL;pcs2=pcs2->next) {
 			if (pcs2->current_outstream==st) 
@@ -1803,17 +1906,16 @@ if (parent!=NULL && parent->status==CHILD_DWAIT) {
 	}
 
 /* See if any process is waiting for us to die and also if we're to kill any
-   child processes upon exiting so that too. */
+   child processes upon exiting do that too. */
 for(pcs2=first_pcs;pcs2!=NULL;pcs2=pcs2->next) {
 	if (pcs2->status==SPEC_DWAIT && pcs2->wait_pid==pcs->pid) {
 		pcs2->pc=pcs2->prog_word[pcs2->pc].end_pos+1;
 		pcs2->status=RUNNING;  
 		}
-	/* This will cause cascade effect as child processes killed here
+	/* This will cause a cascade effect as child processes killed here
 	   run this function too */
 	if (child_die && pcs2->parent==pcs) {
-		sprintf(text,"Child process %d (%s) being terminated.",pcs2->pid,pcs2->name);
-		write_syslog(text);
+		write_syslog("Child process %d (%s) being terminated.",pcs2->pid,pcs2->name);
 		pcs2->status=EXITING;  
 		pcs2->exit_code=OK;
 		}
@@ -1907,11 +2009,12 @@ last_stream=st;
 st->next=NULL;
 st->external=ex;
 st->internal=in;
-st->rw=rw;
+st->device=0;
 st->block=1;
 st->con_sock=0;
 st->echo=1;
 st->locked=0;
+st->rw=rw;
 st->owner=owner;
 st->filename=NULL;
 if (file!=NULL) set_string(&st->filename,file);
@@ -2043,7 +2146,7 @@ if (strlen(str)==1 && *str=='\n') return OK;
    message and end marker. Make sure we don't have 255 in the message string
    first though. */
 str2=str;
-while(*str2) if ((unsigned char)*(str2++)==255) return ERR_ILLEGAL_CHAR;
+while(*str2) if ((u_char)*(str2++)==255) return ERR_ILLEGAL_CHAR;
 
 owner=current_outstream->owner;
 sprintf(tmp,"%d\n",current_pcs->pid);
@@ -2068,7 +2171,8 @@ return OK;
 
 
 
-/*** Go through string an replace colour commands with ansi escape codes ***/
+/*** Go through string an replace colour/terminal commands with ansi escape 
+     codes ***/
 replace_colour_coms(str,str2)
 char *str,**str2;
 {
@@ -2135,10 +2239,10 @@ return OK;
      input buffer. ***/
 read_stream()
 {
-int rlen,ex,pos,gotit,readit,ret,is_sock;
+int rlen,ex,pos,readit,ret,is_sock;
 struct timeval tm;
 fd_set mask;
-unsigned char c[1],*mesg,*tmp;
+u_char c,*mesg,*tmp;
 char cnt[10];
 
 if (current_instream==NULL) return ERR_INVALID_STREAM;
@@ -2151,10 +2255,10 @@ if (current_instream->external!=-1) {
 
 	/* Get input from a non-blocking select (done by setting timeval
 	   to zero) */
-	*c='\0';
+	c='\0';
 	pos=0;  
 	rlen=0; 
-	gotit=0;
+	readit=0; 
 	tm.tv_sec=0;
 	tm.tv_usec=0;
 	FD_ZERO(&mask);
@@ -2165,45 +2269,42 @@ if (current_instream->external!=-1) {
 	/* See if we got anything. We read data into text buffer because 
 	   calling append_string for each character read would be horribly 
 	   slow */
-	if (FD_ISSET(ex,&mask)) {
-		gotit=1;  
-		readit=0; 
-		errno=0;
+	if (!FD_ISSET(ex,&mask)) return set_variable("$eof",NULL,"0",1);
 
-		/* EINTR means read returned due to a signal interrupt */
-		while((rlen=read(ex,c,1))>0 || (rlen==-1 && errno==EINTR)) {
-			readit=1;
-			if (*c=='\r') continue;
-			if (*c=='\n') break;
-			text[pos]=*c;
-			if (++pos==ARR_SIZE-1) {
-				text[ARR_SIZE-1]='\0';
-				append_string(&current_pcs->input_buff,text);
-				pos=0;
-				}
+	/* EINTR means read returned due to a signal interrupt */
+	errno=0;
+	while((rlen=read(ex,&c,1))>0 || (rlen==-1 && errno==EINTR)) {
+		readit=1;
+		if (c=='\r') continue;
+		if (c=='\n') break;
+		text[pos]=c;
+		if (++pos==ARR_SIZE-1) {
+			text[ARR_SIZE-1]='\0';
+			append_string(&current_pcs->input_buff,text);
+			pos=0;
 			}
-		text[pos]='\0';
-
-		/* If 1st char is 255 then its a telopt control code; ignore */
-		if ((unsigned char)text[0]==255 && is_sock) return OK;
-
-		/* Its a controlling port socket which has been closed so 
-		   kill process */
-		if (!readit && !current_instream->con_sock && is_sock) {
-			current_pcs->status=EXITING;  return OK;
-			}
-		append_string(&current_pcs->input_buff,text);
 		}
+	text[pos]='\0';
+
+	/* If 1st char is 255 then its a telopt control code; ignore */
+	if ((u_char)text[0]==255 && is_sock) return OK;
+
+	/* Its a controlling port socket which has been closed so 
+	   kill process */
+	if (!readit && !current_instream->con_sock && is_sock) {
+		current_pcs->status=EXITING;  return OK;
+		}
+	append_string(&current_pcs->input_buff,text);
 
 	/* If we've hit end of the line unsuspend process. */
-	if (*c=='\n') current_pcs->status=RUNNING;
+	if (c=='\n') current_pcs->status=RUNNING;
 
 	/* If select said there was something to read and read returned 0 or 
 	   -1 then we've hit the end of the file or theres no data */
-	if (gotit && rlen<1) {
+	if (rlen<1) {
 		/* If its socket which might be talking to a char mode
 		   client see if we've really finished. */
-		if (*c && is_sock) return set_variable("$eof",NULL,"0",1);
+		if (c && is_sock) return set_variable("$eof",NULL,"0",1);
 		current_pcs->eof=1;
 
 		/* unsuspend process whether we've hit a newline or not */
@@ -2219,7 +2320,7 @@ if (current_instream->internal!=MESG_Q) return ERR_UNSET_STREAM;
 /* Read data off message q onto input buffer. This is an inefficient
    method but it allows compatability with external input using the
    input buffer at the same time. */
-if ((mesg=(unsigned char *)current_pcs->mesg_q)==NULL) return OK; 
+if ((mesg=(u_char *)current_pcs->mesg_q)==NULL) return OK; 
 current_pcs->status=RUNNING;  /* data on queue,unsuspend process */
 
 /* Go along queue and read one line into input buffer. We should never
@@ -2255,7 +2356,7 @@ if (!*mesg || !*(mesg+1)) {
 
 /* Still data on queue , shift start of data down. */
 ++mesg; /* To skip terminating '\n' */
-if ((tmp=(unsigned char *)malloc(strlen(mesg)+1))==NULL) 
+if ((tmp=(u_char *)malloc(strlen(mesg)+1))==NULL) 
 	return ERR_MALLOC;
 strcpy(tmp,mesg);  
 free(current_pcs->mesg_q);
@@ -2270,8 +2371,8 @@ return set_variable("$eof",NULL,"0",1);
 seek_stream(com_num,whence,offset)
 int com_num,whence,offset;
 {
-unsigned char *mesg,*m;
-char cnt[10],c[1];
+u_char *mesg,*m;
+char cnt[10],c;
 int lines,rlen,ex,mcnt;
 
 if (current_instream==NULL) return ERR_INVALID_STREAM;
@@ -2291,8 +2392,8 @@ if ((ex=current_instream->external)!=-1) {
 	/* Count lines */	
 	lines=0;
 	errno=0;
-	while((rlen=read(ex,c,1))>0 || (rlen==-1 && errno==EINTR)) {
-		if (c[0]=='\n') ++lines;
+	while((rlen=read(ex,&c,1))>0 || (rlen==-1 && errno==EINTR)) {
+		if (c=='\n') ++lines;
 		if (lines==offset) return push_rstack("1");
 		}
 	return push_rstack("0");
@@ -2304,7 +2405,7 @@ if (current_instream->internal!=MESG_Q) return ERR_INVALID_STREAM;
    the start. Can't seek backwards or on an empty queue or off the end
    of the queue. */
 if (!offset) return push_rstack("1");
-mesg=(unsigned char *)current_pcs->mesg_q;
+mesg=(u_char *)current_pcs->mesg_q;
 
 if (com_num==LSEEK) {
 	if (offset<0 || mesg==NULL) return push_rstack("0");
@@ -2320,7 +2421,7 @@ if (com_num==LSEEK) {
 	if (*(mesg+1)==255) {  mcnt++;  mesg++;  }
 
 	/* Set queue */
-	if ((m=(unsigned char *)malloc(strlen(mesg)+1))==NULL)
+	if ((m=(u_char *)malloc(strlen(mesg)+1))==NULL)
 		return ERR_MALLOC;
 	strcpy(m,mesg);
 	free(current_pcs->mesg_q);
@@ -2335,12 +2436,12 @@ if (com_num==LSEEK) {
 if (offset<0 || mesg==NULL || offset>=strlen(mesg)) return push_rstack("0");
 
 offset+=(*(mesg+offset)=='\n'); /* Don't want to start next mesg on a \n */
-if ((mesg=(unsigned char *)malloc(strlen(mesg)+1-offset))==NULL)
+if ((mesg=(u_char *)malloc(strlen(mesg)+1-offset))==NULL)
 	return ERR_MALLOC;
 strcpy(mesg,current_pcs->mesg_q+offset);
 
 /* See how messages we've skipped */
-m=(unsigned char *)current_pcs->mesg_q;
+m=(u_char *)current_pcs->mesg_q;
 while(offset--) {
 	if (*m==255) {
 		current_pcs->mesg_cnt--; /* end marker */
@@ -2367,8 +2468,11 @@ return push_rstack("1");
 is_sock_stream(st)
 struct streams *st;
 {
-if (st==NULL) return 0;
-if (st->external>2 && st->filename==NULL) return 1;
+if (st!=NULL && 
+    st->external>2 && 
+    !st->device && 
+    st->filename==NULL &&
+    !isinteger(st->name,0)) return 1;
 return 0;
 }
 
@@ -2390,8 +2494,7 @@ days=secs/86400;  secs%=86400;
 hours=secs/3600;  secs%=3600;
 mins=secs/60;     secs%=60;
 
-sprintf(text,"Uptime: %d days, %d hours, %d mins, %d secs.",days,hours,mins,secs);
-write_syslog(text);
+write_syslog("Uptime: %d days, %d hours, %d mins, %d secs.",days,hours,mins,secs);
 }
 
 
@@ -2412,19 +2515,28 @@ return str;
 
 
 
-/*** Write to the system log (or to stdout if not specified on command
-     line) ***/
-write_syslog(str)
-char *str;
+/*** Write to the system log. This is a variadic function which saves having
+     to use sprintf all the time before calling it ***/
+write_syslog(char *str, ...)
 {
 FILE *fp;
+va_list args;
 
+va_start(args,str);
 if (syslog_file==NULL) {
-	printf("%s: %s\n",timestr(),str);  return;
+	printf("%s: ",timestr());
+	vprintf(str,args);  
+	putchar('\n');
+	va_end(args);
+	return 1;
 	}
-if (!(fp=fopen(syslog_file,"a"))) return; /* Can't do much about it */
-fprintf(fp,"%s: %s\n",timestr(),str);
+if (!(fp=fopen(syslog_file,"a"))) return 0; /* Can't do much about it */
+fprintf(fp,"%s: ",timestr());
+vfprintf(fp,str,args);
+putc('\n',fp);
+va_end(args);
 fclose(fp);
+return 1;
 }
 
 
@@ -2521,9 +2633,14 @@ get_command_number(word)
 char *word;
 {
 int i;
+char *s;
 
-for(i=0;i<NUM_COMS;++i)
-	if (!strcmp(commands[i].command,word)) return i;
+s=text;
+strcpy(text,word);
+while(*s) {  *s=tolower(*s);  ++s;  }
+
+for(i=0;i<NUM_COMS;++i) 
+	if (!strcmp(commands[i].command,text)) return i;
 return -1;
 }
 
@@ -2594,16 +2711,13 @@ int err,line;
 {
 sprintf(text,"ERROR: Process %d (%s): ",current_pcs->pid,current_pcs->name);
 
-if (real_line==-1) sprintf(text,"%s%s.",text,error_mesg[err]);
-else sprintf(text,"%s%s in file \"%s\" on line %d.",text,error_mesg[err],prog_word[current_pcs->pc].filename,line);
-write_syslog(text);
+if (real_line==-1) write_syslog("%s%s.",text,error_mesg[err]);
+else write_syslog("%s%s in file \"%s\" on line %d.",text,error_mesg[err],prog_word[current_pcs->pc].filename,line);
 
 if (!max_errors || current_pcs->err_cnt<max_errors) return;
 
-if (max_errors>1) {
-	sprintf(text,"Process %d (%s) reached maximum error count, terminating...",current_pcs->pid,current_pcs->name);
-	write_syslog(text);
-	}
+if (max_errors>1) 
+	write_syslog("Process %d (%s) reached maximum error count, terminating...",current_pcs->pid,current_pcs->name);
 current_pcs->status=EXITING;
 current_pcs->exit_code=err;
 process_exit();
@@ -2629,8 +2743,35 @@ if (*path=='/') {
 sprintf(fullpath,"%s%s",root_path,path);
 return fullpath;
 }
-	
-	
+
+
+
+/*** Switch echoing to on for console and all devices when we exit in case
+     system died while prompting for a password etc. If echo was already off
+     when the system started tough shit. ***/
+reset_echoing()
+{
+struct streams *st;
+struct termio tio;
+
+/* Reset stdin */
+if (!be_daemon) {
+	ioctl(0,TCGETA,&tio);
+	tio.c_lflag |= ECHO;
+	ioctl(0,TCSETA,&tio);
+	}
+
+/* Reset any devices */
+for(st=first_stream;st!=NULL;st=st->next) {
+	if (st->device) {
+		ioctl(st->external,TCGETA,&tio);
+		tio.c_lflag |= ECHO;
+		ioctl(st->external,TCSETA,&tio);
+		}
+	}
+}
+
+
 
 
 /*****************************************************************************
@@ -2752,7 +2893,7 @@ ipos=0;
 if (com_num!=IEXEC) {
 	sprintf(pathname,"%s%s",code_path,file_prog);
 	if (!(incst[0].fp=fopen(pathname,"r"))) {
-		real_line=-1;  return ERR_CANT_OPEN_FILE;
+		real_line=-1;  return ERR_CANT_OPEN_FILE_OR_DIR;
 		}
 	c=getc(incst[0].fp);
 	if (feof(incst[0].fp)) {  
@@ -2799,11 +2940,11 @@ while(1) {
 		if (!com_num && !qbm) {
 			printf("   ");
 			for(i=0;i<ipos;++i) putchar('>');
-			printf(" Loading include file \"%s\"...\n",incst[ipos].filename);
+			printf(" Loading include file \"%s\"\n",incst[ipos].filename);
 			}
 		sprintf(pathname,"%s%s",code_path,incst[ipos].filename);	
 		if (!(incst[ipos].fp=fopen(pathname,"r"))) {
-			ret=ERR_CANT_OPEN_FILE;  --ipos;  goto ERROR;
+			ret=ERR_CANT_OPEN_FILE_OR_DIR;  --ipos;  goto ERROR;
 			}
 		if (c=='\n') incst[ipos-1].real_line++;
 		real_line=1;
@@ -4266,9 +4407,10 @@ while(1) {
 			if (eval_result) return OK;
 			op=2;
 			}
-		else if (!strcmp(w,"xor")) op=3;
-			else if (pc==end+1) return OK;
-				else return ERR_SYNTAX;
+	else if (!strcmp(w,"xor")) op=3;
+	else if (pc==end+1) return OK;
+	else return ERR_SYNTAX;
+
 	if (pc==end) return ERR_SYNTAX;
 	++pc;
 	}
@@ -4276,7 +4418,8 @@ while(1) {
 	
 
 
-/*** This evalutes a single expression clause eg 2 < 3 , "tom" != "dick" ***/
+/*** This evalutes a single expression clause eg 2 < 3 , "tom" != "dick".
+     Returns -1 if evaluates to true, 0 if false and > 0 if error. ***/
 evaluate_single_expression(pc)
 int *pc;
 {
@@ -4374,6 +4517,7 @@ while(1) {
 	if (first_pcs->next==NULL) {
 		uptime();
 		write_syslog("*** System halted: All processes exited. ***");  
+		reset_echoing();
 		exit(0);
 		}
 
@@ -4391,6 +4535,11 @@ while(1) {
 	/* Loop through processes */
 	for(current_pcs=first_pcs->next;current_pcs;current_pcs=pcs_next) {
 		pcs_next=current_pcs->next;
+		if (current_pcs->status==IMAGE || current_pcs->status==HALTED) 
+			continue;
+
+		/* Inc number of times a running process has been in scope */
+		current_pcs->run_cnt[0]++;
 
 		/* real_current_pcs used in sig_handler as current_pcs is 
 		   corrupted by a number of the runtime functions */
@@ -4417,7 +4566,6 @@ while(1) {
 
 		/* Switch on status */
 		switch(current_pcs->status) {
-			case IMAGE      :
 			case CHILD_DWAIT:
 			case SPEC_DWAIT : continue;
 
@@ -4537,26 +4685,30 @@ while(1) {
 		continue;
 		}
 
+	/* Inc number of times process gets to swapout checking unless its
+	   idling in an input loop. */
+	if (current_pcs->status!=INPUT_WAIT) current_pcs->run_cnt[1]++;
+
 	/* See if we've executed max number of instructions for this process
 	   in this timeslot. We do this before exec_command in case it executed
 	   way too many last time due to nested commands. */
-	if (inst_cnt>=swapout_after - current_pcs->over) {
-		current_pcs->over+=inst_cnt - swapout_after;
+	if (inst_cnt>=current_pcs->swapout_after - current_pcs->over) {
+		current_pcs->over+=inst_cnt - current_pcs->swapout_after;
 		if (current_pcs->over<0) current_pcs->over=0;
 		current_pcs->pc=pc;  
 		return OK;
 		}
+
+	/* Inc number of times process gets beyond swapout checking */
+	if (current_pcs->status!=INPUT_WAIT) current_pcs->run_cnt[2]++;
 
 	/* Run a single command (which may recursively call nested commands) */
 	pc2=pc;
 	inflag=(current_pcs->status==INPUT_WAIT);
 	if ((ret=exec_command(&pc))!=OK) {
 		current_pcs->pc=pc;
-		if (!max_errors || ++current_pcs->err_cnt<max_errors) {
-			sprintf(text,"ERROR: Process %d (%s): ",current_pcs->pid,current_pcs->name);
-			sprintf(text,"%s%s in file \"%s\" on line %d; ignoring...",text,error_mesg[ret],prog_word[pc].filename,real_line);
-			write_syslog(text);
-			}
+		if (!max_errors || ++current_pcs->err_cnt<max_errors) 
+			write_syslog("ERROR: Process %d (%s): %s in file \"%s\" on line %d; ignoring...",current_pcs->pid,current_pcs->name,error_mesg[ret],prog_word[pc].filename,real_line);
 		else return ret;
 		}
 
@@ -4579,7 +4731,7 @@ while(1) {
 			}
 		break;
 
-		case EXITING  : return OK;
+		case EXITING: return OK; 
 		}
 
 	/* If command hasn't set pc set it here to next command unless its an
@@ -4596,8 +4748,10 @@ while(1) {
 		return OK;
 		}
 
-	/* In the unlikely event that the process has interrupted itself */
-	if (current_pcs->status==NONCHILD_INT) return OK;
+	/* In the unlikely event that the process has interrupted or halted
+	   itself return now */
+	if (current_pcs->status==NONCHILD_INT || current_pcs->status==HALTED) 
+		return OK;
 
 	/* See if we've moved out of our loop due to a goto or an if 
 	   (eg: if i=2; next; endif)
@@ -4642,6 +4796,9 @@ if (nest_level &&
      (com_num>=SPAWN && com_num<=WAITPID))) {
 	ret=ERR_NESTED_COMMAND;  goto END;
 	}
+
+/* Inc number of times process runs a command unless idling in input loop */
+if (current_pcs->status!=INPUT_WAIT) current_pcs->run_cnt[3]++;
 
 /* Call command function  */
 ret=ERR_INTERNAL;
@@ -4708,7 +4865,7 @@ for(pc2=pc+1;pc2<=prog_word[pc].end_pos;++pc2) {
 	if ((ret=get_variable(w,current_proc))!=OK) return ret;
 	if (current_var->proc!=NULL) return ERR_VAR_SHARE2;
 	if (com_num==SHARE) current_var->flags|=SHARED;
-	else if (current_var->flags & SHARED) current_var->flags^=SHARED;
+	else current_var->flags &= ~SHARED;
 	}
 return OK;
 }
@@ -4719,12 +4876,13 @@ return OK;
 com_stid(com_num,pc)
 int com_num,pc;
 {
-int pc2,ret,val,end,len,is_var,cnt,ok;
+int pc2,ret,val,end,len,is_var,cnt,ok,op_num;
 struct vars *var,*v_old,*c_old;
 char *varname,*varval,*w,*valptr[2];
 char *shared_1,*shared_2,*s;
 
 is_var=0;
+op_num=-1;
 end=prog_word[pc].end_pos;
 len=end-pc;
 
@@ -4743,8 +4901,7 @@ if (len>1) {
 	/* Can't use push_rstack_result here as we need to know if we getting
 	   values from an array. If we are then use copy_array to copy over
 	   its subscripts into variable being set */
-	pc2=pc+2;
-	while(pc2<=end) {
+	for(pc2=pc+2;pc2<=end;) {
 		w=prog_word[pc2].word;
 		switch(*w) {
 			case '[': 
@@ -4757,6 +4914,9 @@ if (len>1) {
 			push_rstack_qstr(w);  ++pc2;  break;
 
 			default:
+			if (com_num==TSET && pc2==pc+2 && prog_word[pc2].op_num!=-1) {
+				op_num=prog_word[pc2].op_num;  ++pc2;  continue;
+				}
 			if (isinteger(w,1)) push_rstack(w);
 			else {
 				if ((ret=get_variable(w,current_proc))!=OK) 
@@ -4776,13 +4936,22 @@ switch(com_num) {
 	case TSET:
 	if (cnt!=2) return ERR_SYNTAX;
 	if (ret!=OK) return ret;
-	if (isnull(varval)) {
-		if (isnull(valptr[0])) ok=1; 
+	if (op_num!=-1) {
+		pc2=pc+1;
+		c_old=current_var; /* save current var ie */
+		if ((ret=evaluate_single_expression(&pc2))>0) return ret;
+		if (!ret) return push_rstack("0");
+		current_var=c_old;
 		}
 	else {
-		if (!isnull(valptr[0]) && !strcmp(varval,valptr[0])) ok=1;
+		if (isnull(varval)) {
+			if (isnull(valptr[0])) ok=1; 
+			}
+		else {
+			if (!isnull(valptr[0]) && !strcmp(varval,valptr[0])) ok=1;
+			}
+		if (!ok) return push_rstack("0");
 		}
-	if (!ok) return push_rstack("0");
 	valptr[0]=valptr[1];
 	/* Fall through to set */
 	
@@ -4861,20 +5030,23 @@ return ERR_INTERNAL;
 
 
 
-/*** This deals with "not", "abs", "sgn" and "rand". They all only take 
+/*** This deals with "not", "abs", "sgn", "rand" & "cpl". They all only take 
      1 argument. "atoc" isn't a maths command but its convenient to put it 
      here as it takes the same argument type and count. ***/
 com_maths1(com_num,pc)
 int com_num,pc;
 {
-int val,ret,legal,neg;
+int val,ret,legal,neg,end;
 char *valptr;
 
-if (prog_word[pc].end_pos - pc < 1) return ERR_SYNTAX;
+end=prog_word[pc].end_pos;
+if (end - pc < 1) return ERR_SYNTAX;
 
 ++pc;
 if (com_num==NOTCOM) legal=ALL_LEGAL; else legal=STRING_ILLEGAL;
 if ((ret=push_rstack_result(&pc,legal))!=OK) return ret;
+if (pc<=end) return ERR_SYNTAX;
+
 valptr=rstack_ptr->value;
 if (valptr!=NULL) val=atoi(valptr); else val=0;
 
@@ -4892,7 +5064,7 @@ switch(com_num) {
 	case SGN:
 	if (val<0) val=-1;
 	else if (val>0) val=1;
-		else val=0;
+	else val=0;
 	sprintf(text,"%d",val);
 	break;
 
@@ -4900,7 +5072,40 @@ switch(com_num) {
 	if (val<0) { neg=-1; val=-val; } else neg=1;
 	ret=(rand()%(val+1))*neg;
 	sprintf(text,"%d",ret);
+	break;
+
+	case CPL:
+	sprintf(text,"%d",~val);
 	}
+return push_rstack(text);
+}
+
+
+
+/*** Function for the bit shift commands ***/
+com_shift(com_num,pc)
+int com_num,pc;
+{
+int pc2,end,ret,cnt,val,shiftby;
+
+end=prog_word[pc].end_pos;
+if (end-pc < 2) return ERR_SYNTAX;
+
+cnt=0;
+for(pc2=pc+1;pc2<=end;) {
+	if (cnt==2) return ERR_SYNTAX;
+	if ((ret=push_rstack_result(&pc2,STRING_ILLEGAL))!=OK) 
+		return ret;
+	if (!cnt) val=atoi(rstack_ptr->value);
+	else {
+		if ((shiftby=atoi(rstack_ptr->value))<0)
+			return ERR_INVALID_ARGUMENT;
+		}
+	++cnt;
+	}
+if (com_num==BSL) val<<=shiftby;
+else val>>=shiftby;
+sprintf(text,"%d",val);
 return push_rstack(text);
 }
 
@@ -4914,8 +5119,8 @@ return push_rstack(text);
 com_mathsv(com_num,pc)
 int com_num,pc;
 {
-int pc2,ret,tmp,len,cnt,val,mesg_q;
-char *w,*result,*valptr,*mm_str,*mesg_buff;
+int pc2,ret,tmp,len,cnt,val,num,mesg_q;
+char *w,*result,*valptr;
 char *s,*s2,*log_result;
 struct streams *out;
 
@@ -4923,13 +5128,14 @@ struct streams *out;
    moment , if not then suspend process unless stream is non-blocking in
    which case just return. */
 out=current_outstream;
-if ((com_num==PRINT || com_num==PRINTNL) && 
-    out &&
-    ((out->internal==MESG_Q && out->owner->mesg_cnt==max_mesgs) || 
-     out->locked)) {
-	if (out->block) current_pcs->status=OUTPUT_WAIT;  
-	set_variable("$print_ok",NULL,"0",1);
-	return OK;
+if (com_num==PRINT || com_num==PRINTNL) {
+	if (out==NULL) return ERR_INVALID_STREAM;
+	if (out->locked ||
+	    (out->internal==MESG_Q && out->owner->mesg_cnt==max_mesgs)) {
+		if (out->block) current_pcs->status=OUTPUT_WAIT;  
+		set_variable("$print_ok",NULL,"0",1);
+		return OK;
+		}
 	}
 
 len=prog_word[pc].end_pos-pc;
@@ -4944,11 +5150,9 @@ if (len<2) {
 cnt=0;
 val=0;
 result=NULL;
-mm_str=NULL;
 
 /* This is if we're printing to a message queue */
-mesg_buff=NULL;
-if (current_outstream->internal==MESG_Q) mesg_q=1; else mesg_q=0;
+if (out->internal==MESG_Q) mesg_q=1; else mesg_q=0;
 
 /* Go through commands parameters */
 for(pc2=pc+1;pc2<=prog_word[pc].end_pos;) {
@@ -4960,39 +5164,55 @@ for(pc2=pc+1;pc2<=prog_word[pc].end_pos;) {
 		case '[':
 		tmp=pc2+1;
 		if ((ret=exec_command(&tmp))!=OK) {
-			FREE(mesg_buff);  return ret;
+			FREE(result);  return ret;
 			}
 		valptr=rstack_ptr->value;
 
 		if (com_num>=ADD && 
 		    com_num<=MINCOM && 
 		    com_num!=CTOA && 
-		    !isinteger(valptr,1)) return ERR_INVALID_ARGUMENT;
+		    !isinteger(valptr,1)) {
+			FREE(result);  return ERR_INVALID_ARGUMENT;
+			}
+
+		if (valptr) num=atoi(valptr); else num=0;
 
 		switch(com_num) {
 			case ADDSTR:	
 			append_string(&result,valptr);  break;
 
-			case ADD: val+=atoi(valptr); break;
+			case ADD: val+=num; break;
 
 			case SUB:
-			if (cnt==1) val=atoi(valptr); else val-=atoi(valptr);
+			if (cnt==1) val=num; else val-=num;
 			break;
 
 			case MUL:
-			if (cnt==1) val=atoi(valptr); else val*=atoi(valptr);
+			if (cnt==1) val=num; else val*=num;
 			break;
 
 			case DIV:
-			if (cnt==1) val=atoi(valptr); else val/=atoi(valptr);
+			if (cnt==1) val=num; else val/=num;
 			break;
 
 			case MOD:
-			if (cnt==1) val=atoi(valptr); else val%=atoi(valptr);
+			if (cnt==1) val=num; else val%=num;
+			break;
+
+			case BWA:
+			if (cnt==1) val=num; else val&=num;
+			break;
+
+			case BWO:
+			if (cnt==1) val=num; else val|=num;
+			break;
+
+			case BWX:
+			if (cnt==1) val=num; else val^=num;
 			break;
 
 			case ATOC:
-			sprintf(text,"%c",atoi(valptr));
+			sprintf(text,"%c",num);
 			append_string(&result,text);
 			break;
 
@@ -5006,31 +5226,31 @@ for(pc2=pc+1;pc2<=prog_word[pc].end_pos;) {
 			break;
 
 			case MAXCOM:
-			if (cnt==1) val=atoi(valptr);
-			else if (val<atoi(valptr)) val=atoi(valptr);
+			if (cnt==1) val=num;
+			else if (val<num) val=num;
 			break;
 
 			case MINCOM:
-			if (cnt==1) val=atoi(valptr);
-			else if (val>atoi(valptr)) val=atoi(valptr);
+			if (cnt==1) val=num;
+			else if (val>num) val=num;
 			break;
 
 			case MAXSTR:
-			if (cnt==1) set_string(&mm_str,valptr);
-			else if (compare_strings(mm_str,valptr)<0)
-					set_string(&mm_str,valptr);
+			if (cnt==1) set_string(&result,valptr);
+			else if (compare_strings(result,valptr)<0)
+					set_string(&result,valptr);
 			break;
 
 			case MINSTR:
-			if (cnt==1) set_string(&mm_str,valptr);
-			else if (compare_strings(mm_str,valptr)>0)
-					set_string(&mm_str,valptr);
+			if (cnt==1) set_string(&result,valptr);
+			else if (compare_strings(result,valptr)>0)
+					set_string(&result,valptr);
 			break;
 
 			case PRINT   : 
 			case PRINTNL :
 			if (valptr!=NULL) {
-				if (mesg_q) append_string(&mesg_buff,valptr);
+				if (mesg_q) append_string(&result,valptr);
 				else if ((ret=write_stream(valptr))!=OK) 
 						return ret;
 				}
@@ -5045,8 +5265,9 @@ for(pc2=pc+1;pc2<=prog_word[pc].end_pos;) {
 
 		/** Parameter is an embedded program string **/
 		case '"':
-		if (com_num>=ADD && com_num<=MINCOM && com_num!=CTOA) 
-			return ERR_INVALID_ARGUMENT;
+		if (com_num>=ADD && com_num<=MINCOM && com_num!=CTOA) {
+			FREE(result);  return ERR_INVALID_ARGUMENT;
+			}
 
 		/* Parameter is a string */
 		w++;  len=strlen(w)-1;  w[len]='\0';		
@@ -5064,20 +5285,20 @@ for(pc2=pc+1;pc2<=prog_word[pc].end_pos;) {
 
 			case MAXCOM:
 			case MAXSTR:
-			if (cnt==1) set_string(&mm_str,w);
-			else if (compare_strings(mm_str,w)<0)
-					set_string(&mm_str,w);
+			if (cnt==1) set_string(&result,w);
+			else if (compare_strings(result,w)<0)
+					set_string(&result,w);
 			break;
 
 			case MINSTR:
-			if (cnt==1) set_string(&mm_str,w);
-			else if (compare_strings(mm_str,w)>0)
-					set_string(&mm_str,w);
+			if (cnt==1) set_string(&result,w);
+			else if (compare_strings(result,w)>0)
+					set_string(&result,w);
 			break;
 
 			case PRINT   : 
 			case PRINTNL : 
-			if (mesg_q) append_string(&mesg_buff,w);
+			if (mesg_q) append_string(&result,w);
 			else if ((ret=write_stream(w))!=OK) return ret;
 			break;
 
@@ -5092,49 +5313,64 @@ for(pc2=pc+1;pc2<=prog_word[pc].end_pos;) {
 		/** Parameter is an integer or a variable **/
 		default:
 		if (isinteger(w,1)) {
+			num=atoi(w); 
+
 			/* Parameter is a number */
 			switch(com_num) {
 				case CTOA  :
 				case ADDSTR: 
 				case MAXSTR:
 				case MINSTR:
+				FREE(result);  
 				return ERR_INVALID_ARGUMENT;
 
-				case ADD: val+=atoi(w);  break;
+				case ADD: val+=num;  break;
 				case SUB: 
-				if (cnt==1) val=atoi(w); else val-=atoi(w);  
+				if (cnt==1) val=num; else val-=num;  
 				break;
 
 				case MUL: 
-				if (cnt==1) val=atoi(w); else val*=atoi(w);  
+				if (cnt==1) val=num; else val*=num;  
 				break;
 
 				case DIV: 
-				if (cnt==1) val=atoi(w); else val/=atoi(w);  
+				if (cnt==1) val=num; else val/=num;  
 				break;
 
 				case MOD: 
-				if (cnt==1) val=atoi(w); else val%=atoi(w);  
+				if (cnt==1) val=num; else val%=num;  
+				break;
+
+				case BWA: 
+				if (cnt==1) val=num; else val&=num;  
+				break;
+
+				case BWO: 
+				if (cnt==1) val=num; else val|=num;  
+				break;
+
+				case BWX: 
+				if (cnt==1) val=num; else val^=num;  
 				break;
 
 				case ATOC:
-				sprintf(text,"%c",atoi(w));
+				sprintf(text,"%c",num);
 				append_string(&result,text);
 				break;
 
 				case MAXCOM:
-				if (cnt==1) val=atoi(w);
-				else if (val<atoi(w)) val=atoi(w);
+				if (cnt==1) val=num;
+				else if (val<num) val=num;
 				break;
 
 				case MINCOM:
-				if (cnt==1) val=atoi(w);
-				else if (val>atoi(w)) val=atoi(w);
+				if (cnt==1) val=num;
+				else if (val>num) val=num;
 				break;
 
 				case PRINT   : 
 				case PRINTNL : 
-				if (mesg_q) append_string(&mesg_buff,w);
+				if (mesg_q) append_string(&result,w);
 				else if ((ret=write_stream(w))!=OK) return ret;
 				break;
 
@@ -5145,43 +5381,55 @@ for(pc2=pc+1;pc2<=prog_word[pc].end_pos;) {
 		else {
 			/* Parameter is a variable */
 			if ((ret=get_variable(w,current_proc))!=OK) {
-				FREE(mesg_buff);  return ret;
+				FREE(result);  return ret;
 				}
 
 			valptr=rstack_ptr->value;
 			if (com_num>=ADD && 
 			    com_num<=MINCOM && 
 			    com_num!=CTOA && 
-			    !isinteger(valptr,1)) return ERR_INVALID_ARGUMENT;
+			    !isinteger(valptr,1)) {
+				FREE(result);  return ERR_INVALID_ARGUMENT;
+				}
+
+			if (valptr) num=atoi(valptr); else num=0;
 
 			switch(com_num) {
 				case ADDSTR: 
 				append_string(&result,valptr);  break;
 
-				case ADD: val+=atoi(valptr); break;
+				case ADD: val+=num; break;
 
 				case SUB:
-				if (cnt==1) val=atoi(valptr); 
-				else val-=atoi(valptr);  
+				if (cnt==1) val=num; else val-=num;  
 				break;
 
 				case MUL:
-				if (cnt==1) val=atoi(valptr);
-				else val*=atoi(valptr);  
+				if (cnt==1) val=num; else val*=num;  
 				break;
 
 				case DIV:
-				if (cnt==1) val=atoi(valptr);
-				else val/=atoi(valptr);  
+				if (cnt==1) val=num; else val/=num;  
 				break;
 
 				case MOD:
-				if (cnt==1) val=atoi(valptr);
-				else val%=atoi(valptr);  
+				if (cnt==1) val=num; else val%=num;  
+				break;
+
+				case BWA:
+				if (cnt==1) val=num; else val&=num;  
+				break;
+
+				case BWO:
+				if (cnt==1) val=num; else val|=num;  
+				break;
+
+				case BWX:
+				if (cnt==1) val=num; else val^=num;  
 				break;
 
 				case ATOC:
-				sprintf(text,"%c",atoi(valptr));
+				sprintf(text,"%c",num);
 				append_string(&result,text);
 				break;
 
@@ -5195,31 +5443,31 @@ for(pc2=pc+1;pc2<=prog_word[pc].end_pos;) {
 				break;
 
 				case MAXCOM:
-				if (cnt==1) val=atoi(valptr);
-				else if (val<atoi(valptr)) val=atoi(valptr);
+				if (cnt==1) val=num;
+				else if (val<num) val=num;
 				break;
 
 				case MINCOM:
-				if (cnt==1) val=atoi(valptr);
-				else if (val>atoi(valptr)) val=atoi(valptr);
+				if (cnt==1) val=num;
+				else if (val>num) val=num;
 				break;
 
 				case MAXSTR:
-				if (cnt==1) set_string(&mm_str,valptr);
-				else if (compare_strings(mm_str,valptr)<0)
-						set_string(&mm_str,valptr);
+				if (cnt==1) set_string(&result,valptr);
+				else if (compare_strings(result,valptr)<0)
+						set_string(&result,valptr);
 				break;
 
 				case MINSTR:
-				if (cnt==1) set_string(&mm_str,valptr);
-				else if (compare_strings(mm_str,valptr)>0)
-						set_string(&mm_str,valptr);
+				if (cnt==1) set_string(&result,valptr);
+				else if (compare_strings(result,valptr)>0)
+						set_string(&result,valptr);
 				break;
 
 				case PRINT   : 
 				case PRINTNL :
 				if (valptr!=NULL) {
-					if (mesg_q) append_string(&mesg_buff,valptr);
+					if (mesg_q) append_string(&result,valptr);
 					else if ((ret=write_stream(valptr))!=OK) 
 							return ret;
 					}
@@ -5240,20 +5488,30 @@ switch(com_num) {
 	if (result!=NULL) result[strlen(result)-1]='\0'; 
 	/* Fall through */
 
-	case ATOC:
 	case ADDSTR:
-	push_rstack(result);  FREE(result);  return OK;
+	if (cnt<2 && com_num==ADDSTR) {
+		FREE(result);  return ERR_SYNTAX;
+		}
+	/* Fall through */
+
+	case ATOC:
+	push_rstack(result);  
+	FREE(result);  
+	return OK;
 
 	case MAXSTR:
 	case MINSTR:
-	push_rstack(mm_str);  FREE(mm_str);  return OK;
+	if (cnt<2) return ERR_SYNTAX;
+	push_rstack(result);  
+	FREE(result);  
+	return OK;
 
 	case PRINT: 
 	case PRINTNL: 
 	set_variable("$print_ok",NULL,"1",1);
-	if (mesg_q && mesg_buff!=NULL) {
-		if ((ret=write_stream(mesg_buff))!=OK) return ret;
-		free(mesg_buff);
+	if (mesg_q && result!=NULL) {
+		if ((ret=write_stream(result))!=OK) return ret;
+		free(result);
 		}
 	if (com_num==PRINT) return OK;
 	return write_stream("\n");
@@ -5282,6 +5540,7 @@ switch(com_num) {
 	return OK;
 	}
 /* Maths commands end up here */
+if (cnt<2) return ERR_SYNTAX;
 sprintf(text,"%d",val);
 return push_rstack(text);
 }
@@ -5330,11 +5589,12 @@ if ((ret=evaluate_complete_expression(*pc))!=OK) return ret;
 if (eval_result) return OK;
 nested=1;
 
-/* Find "else" or "endif" if there isn't one */
+/* Find else or endif/fi if there isn't one */
 for(*pc=prog_word[*pc].end_pos+1;*pc<num_words;++*pc) {
 	switch(prog_word[*pc].com_num) {
 		case IF   : nested++;  continue;
 		case ELSE : if (!(nested-1)) {  ++*pc;  return OK;  };  continue;
+		case FI   :
 		case ENDIF: if (!--nested) {  ++*pc;  return OK;  };  continue;
 		case ENDPROC:   return ERR_MISSING_ENDIF;
 		}
@@ -5352,10 +5612,11 @@ int nested;
 
 nested=1;
 
-/* Find endif */
+/* Find endif/fi */
 for(*pc=*pc+1;*pc<num_words;++*pc) {
 	switch(prog_word[*pc].com_num) {
 		case IF     : nested++;  continue;
+		case FI     :
 		case ENDIF  : if (!--nested) {  ++*pc;  return OK;  };  continue;
 		case ENDPROC: return ERR_MISSING_ENDIF;
 		}
@@ -5365,7 +5626,7 @@ return ERR_MISSING_ENDIF;
 
 
 
-/*** Dummy function for "endif" ***/
+/*** Dummy function for endif/fi ***/
 com_endif(com_num,pc)
 int com_num,*pc;
 {
@@ -5775,7 +6036,7 @@ return OK;
 
 
 
-/*** Function for "continue" command ***/
+/*** Function for "continue" & "acontinue" commands ***/
 com_continue(com_num,pc)
 int com_num,*pc;
 {
@@ -5791,7 +6052,15 @@ if (prog_word[*pc].end_pos - *pc) {
 	set_variable("$cont",NULL,rstack_ptr->value,1);
 	}
 
-*pc=current_loop->start_pos;
+/* acontinue behaves differently inside choose structures */
+if (current_loop->type==CHOOSE && com_num==ACONTINUE) {
+	pop_lstack();
+	if (lstack_ptr==NULL || lstack_ptr->loop->proc!=current_proc)
+ 		return ERR_UNEXPECTED_COMMAND;
+	current_loop=lstack_ptr->loop;
+	}
+if (current_loop->type==DO) *pc=current_loop->end_pos;
+else *pc=current_loop->start_pos;
 return OK;
 }
 
@@ -6017,6 +6286,7 @@ int com_num,pc;
 {
 int ret;
 
+if (current_instream==NULL) return ERR_INVALID_STREAM;
 if (current_instream->block && current_pcs->status==INPUT_WAIT) return OK;
 if (prog_word[pc].end_pos - pc<1) return ERR_SYNTAX;
 
@@ -6049,7 +6319,7 @@ return OK;
 com_strings1(com_num,pc) 
 int com_num,pc;
 {
-struct stat *fs;
+struct stat fs;
 int ret,len,val,legal,dup;
 char *valptr,*result,*s,*s2,*e,*e2,c,c2;
 char pathname[100],type[10];
@@ -6162,19 +6432,15 @@ switch(com_num) {
 	*s2=c;
 	return OK;
 
-	case STAT:
-	if ((fs=(struct stat *)malloc(sizeof(struct stat)))==NULL)
-		return ERR_MALLOC;
 
+	case STAT:
 	strcpy(pathname,create_path(valptr));
-	if (lstat(pathname,fs)==-1) {
-		sprintf(text,"Process %d (%s) got lstat() error with file \"%s\": %s",current_pcs->pid,current_pcs->name,pathname,sys_errlist[errno]);
-		write_syslog(text);
-		free(fs);
+	if (lstat(pathname,&fs)==-1) {
+		write_syslog("Process %d (%s) got lstat() error with file \"%s\": %s",current_pcs->pid,current_pcs->name,pathname,sys_errlist[errno]);
 		return ERR_CANT_STAT_FS_ENTRY;
 		}
 
-	switch(fs->st_mode & S_IFMT) {
+	switch(fs.st_mode & S_IFMT) {
 		case S_IFDIR: strcpy(type,"dir"); break;
 		case S_IFREG: strcpy(type,"file"); break;
 		case S_IFLNK: strcpy(type,"link"); break;
@@ -6183,8 +6449,7 @@ switch(com_num) {
 		case S_IFSOCK: strcpy(type,"socket"); break;
 		default: strcpy(type,"unknown");
 		}
-	sprintf(text,"%s %d %03o %d %d",type,(int)fs->st_size,fs->st_mode & 0x1FF,(int)fs->st_mtime,(int)fs->st_atime);
-	free(fs);
+	sprintf(text,"%s %d %03o %d %d",type,(int)fs.st_size,fs.st_mode & 0x1FF,(int)fs.st_mtime,(int)fs.st_atime);
 	return push_rstack(text);
 	}
 return ERR_INTERNAL;
@@ -6193,8 +6458,8 @@ return ERR_INTERNAL;
 
 
 /*** Function for the mulstr, crypt, match, unmatch, matchstr, rename, copy 
-     & chmod commands. They all take exactly 2 arguments (all strings except 
-     for mulstr & chmod last arg) ***/
+     & chmod commands. They all take exactly 2 arguments (except for mkdir) 
+     and are all strings except for mulstr, chmod & mkdir last arg. ***/
 com_strings2(com_num,pc)
 int com_num,pc;
 {
@@ -6206,7 +6471,10 @@ char *avios_crypt();
 FILE *fpold,*fpnew;
 mode_t filemode;
 
-if (prog_word[pc].end_pos - pc <2) return ERR_SYNTAX;
+if (prog_word[pc].end_pos - pc <2) {
+	if (com_num!=MKDIR) return ERR_SYNTAX;
+	if (prog_word[pc].end_pos - pc < 1) return ERR_SYNTAX;
+	}
 
 /* Go through commands parameters */
 cnt=0;
@@ -6218,8 +6486,9 @@ for(pc2=pc+1;pc2<=prog_word[pc].end_pos;) {
 		break;
 
 		case 1:
-		if (com_num==MULSTR || com_num==CHMOD) legal=STRING_ILLEGAL; 
-			else legal=INT_ILLEGAL;
+		if (com_num==MULSTR || com_num==CHMOD || com_num==MKDIR) 
+			legal=STRING_ILLEGAL; 
+		else legal=INT_ILLEGAL;
 		if ((ret=push_rstack_result(&pc2,legal))!=OK) 
 			return ret;
 		break;
@@ -6229,13 +6498,18 @@ for(pc2=pc+1;pc2<=prog_word[pc].end_pos;) {
 	valptr[cnt]=rstack_ptr->value;
 	cnt++;
 	}
-if (cnt<2) return ERR_SYNTAX;
+if (cnt<2) {
+	if (com_num!=MKDIR) return ERR_SYNTAX;
+	if (cnt<1) return ERR_SYNTAX;
+	}
 
 if (isnull(valptr[0])) {
 	switch(com_num) {
 		case RENAME:
 		case COPY  :
 		case CHMOD :
+		case MKDIR :
+		case CRYPT :
 		return ERR_INVALID_ARGUMENT;
 
 		case MATCHSTR:
@@ -6244,7 +6518,7 @@ if (isnull(valptr[0])) {
 		}
 	return push_rstack(NULL);
 	}
-if (isnull(valptr[1])) {
+if (cnt>1 && isnull(valptr[1])) {
 	switch(com_num) {
 		case MATCH   : return push_rstack(NULL);
 		case UNMATCH : return push_rstack(valptr[0]);
@@ -6254,7 +6528,7 @@ if (isnull(valptr[1])) {
 	}
 if (com_num==MULSTR && (num1=atoi(valptr[1]))<1) return ERR_INVALID_ARGUMENT;
 
-if (com_num==RENAME || com_num==COPY || com_num==CHMOD) {
+if (com_num==RENAME || com_num==COPY) {
 	/* Make sure another process is not currently accessing either file.
 	   If this process is accessing it destroy the stream. */
 	for(st=first_stream;st!=NULL;st=st->next) {
@@ -6280,9 +6554,11 @@ switch(com_num) {
 #endif
 	break;
 
+
 	case MULSTR:
 	for(i=0;i<num1;++i) append_string(&result,valptr[0]);
 	break;
+
 
 	case MATCH:
 	case UNMATCH:
@@ -6325,29 +6601,29 @@ switch(com_num) {
 		}
 	break;
 
+
 	case MATCHSTR:
 	sprintf(text,"%d",wildmatch(valptr[0],valptr[1]));
 	return push_rstack(text);
 
+
 	case RENAME:
 	if (rename(pathname1,pathname2)) {
-		sprintf(text,"Process %d (%s) got rename() error with file \"%s\" to \"%s\": %s",current_pcs->pid,current_pcs->name,pathname1,pathname2,sys_errlist[errno]);
-		write_syslog(text);
+		write_syslog("Process %d (%s) got rename() error with file \"%s\" to \"%s\": %s",current_pcs->pid,current_pcs->name,pathname1,pathname2,sys_errlist[errno]);
 		return ERR_CANT_RENAME_FILE;
 		}
 	return OK;
 
+
 	case COPY:
 	if (!(fpold=fopen(pathname1,"r"))) {
-		sprintf(text,"Process %d (%s) got fopen() error with file \"%s\": %s",current_pcs->pid,current_pcs->name,pathname1,sys_errlist[errno]);
-		write_syslog(text);
-		return ERR_CANT_OPEN_FILE;
+		write_syslog("Process %d (%s) got fopen() error with file \"%s\": %s",current_pcs->pid,current_pcs->name,pathname1,sys_errlist[errno]);
+		return ERR_CANT_OPEN_FILE_OR_DIR;
 		}
 	if (!(fpnew=fopen(pathname2,"w"))) {
-		sprintf(text,"Process %d (%s) got fopen() error with file \"%s\": %s",current_pcs->pid,current_pcs->name,pathname2,sys_errlist[errno]);
-		write_syslog(text);
+		write_syslog("Process %d (%s) got fopen() error with file \"%s\": %s",current_pcs->pid,current_pcs->name,pathname2,sys_errlist[errno]);
 		fclose(fpold);  
-		return ERR_CANT_OPEN_FILE;
+		return ERR_CANT_OPEN_FILE_OR_DIR;
 		}
 
 	/* Copy old file into the new */
@@ -6359,21 +6635,36 @@ switch(com_num) {
 	fclose(fpnew);
 	return OK;
 
-	case CHMOD:
-	/* This only parses absolute permissions. Doing the ug+rw etc stuff
-	   is a pain and to be honest not worth the bother as this command
-	   will hardly ever be used anyway. */
-	if (strlen(valptr[1])!=3 || 
-	    valptr[1][0]>'7' || 
-	    valptr[1][1]>'7' || 
-	    valptr[1][2]>'7') return ERR_INVALID_ARGUMENT;
 
-	filemode=(valptr[1][0]-48) << 6;
-	filemode|=(valptr[1][1]-48) << 3;
-	filemode|=valptr[1][2]-48;
+	case MKDIR:
+	case CHMOD:
+	if (cnt<2) filemode=MKDIR_PERM_DEF; /* if no 2nd mkdir arg supplied */
+	else {
+		/* This only parses absolute permissions. Doing the ug+rw etc 
+		   stuff is a pain and to be honest not worth the bother as 
+		   this command will hardly ever be used anyway. */
+		if (strlen(valptr[1])!=3 || 
+		    valptr[1][0]>'7' || 
+		    valptr[1][1]>'7' || 
+		    valptr[1][2]>'7') return ERR_INVALID_ARGUMENT;
+
+		filemode=(valptr[1][0]-48) << 6;
+		filemode|=(valptr[1][1]-48) << 3;
+		filemode|=valptr[1][2]-48;
+		}
+	strcpy(pathname1,create_path(valptr[0]));
+
+	if (com_num==MKDIR) {
+		if (mkdir(pathname1,filemode)==-1) {
+			write_syslog("Process %d (%s) got mkdir() error with dir \"%s\": %s",current_pcs->pid,current_pcs->name,pathname1,sys_errlist[errno]);
+			return ERR_CANT_CREATE_DIR;
+			}
+		return OK;
+		}
+
+	/* CHMOD */
 	if (chmod(pathname1,filemode)==-1) {
-		sprintf(text,"Process %d (%s) got chmod() error with file \"%s\": %s",current_pcs->pid,current_pcs->name,pathname1,sys_errlist[errno]);
-		write_syslog(text);
+		write_syslog("Process %d (%s) got chmod() error with file \"%s\": %s",current_pcs->pid,current_pcs->name,pathname1,sys_errlist[errno]);
 		return ERR_CANT_CHANGE_FS_ENTRY_PERM;
 		}
 	return OK;
@@ -6389,29 +6680,30 @@ return OK;
 /*** A simple encrypting function to be used by com_strings2() if standard 
      unix crypt() function not available (its often missing with some FreeBSD
      distributions). This is not as good as crypt but its better than naff all.
-     It returns a 10 char encrypted word. ***/
-char *avios_crypt(str1,str2)
-char *str1,*str2;
+     It returns a 10 char encrypted word. Str and key can be reversed and the
+     function will give the same result. ***/
+char *avios_crypt(str,key)
+char *str,*key;
 {
-unsigned char c,prev;
-char *s1,*s2;
+u_char c,prev,*s,*k;
 static char output[11];
 int pos;
 
 pos=0;
-s1=str1;
-s2=str2;
 prev='\0';
-while(pos<10) {
-	c=(*s1 + *s2 + prev)%127;
-	if (c<32) c+=32;
+s=(u_char *)str;
+k=(u_char *)key;
+
+do {
+	c=(*s + *k + prev)%127;
+	if (c<33) c+=33;
 	prev=c;
 	output[pos]=(char)c;
 
-	if (!*(++s2)) s2=str2;
-	if (!*(++s1)) s1=str1;
-	++pos;
-	}
+	if (!*(++s)) s=(u_char *)str;
+	if (!*(++k)) k=(u_char *)key;
+	} while(++pos<10);
+
 output[pos]='\0';
 return output;
 }
@@ -6478,7 +6770,7 @@ if (com_num==REPLELEM) {
 		}
 
 	push_rstack(result);
-	free(result);
+	FREE(result);
 	return OK;
 	}
 
@@ -6502,7 +6794,7 @@ while(1) {
 	if (!*s || s2 > valptr[0]+len0) {
 		append_string(&result,s);
 		push_rstack(result);
-		free(result);
+		FREE(result);
 		return OK;
 		}
 
@@ -6590,9 +6882,12 @@ result=NULL;
 switch(com_num) {
 	case INSTR:
 	num2--;
-	if (!len || isnull(valptr[1]) || num2>=len) return push_rstack("0");
+	if (!len || isnull(valptr[1]) || num2>=len) 
+		return push_rstack("0");
+
 	w=valptr[0]+num2;
-	if ((res=(char *)strstr(w,valptr[1]))==NULL) return push_rstack("0");
+	if ((res=(char *)strstr(w,valptr[1]))==NULL) 
+		return push_rstack("0");
 
 	sprintf(text,"%d",(int)(res - valptr[0])+1);
 	return push_rstack(text);
@@ -6788,7 +7083,7 @@ switch(com_num) {
 /* Push result */
 RESULT:
 push_rstack(result);  
-free(result);
+FREE(result);
 return OK;
 }
 
@@ -6974,9 +7269,8 @@ if (rw==WRITE) remove(pathname);
 
 /* Open file and set stream */
 if ((fd=open(pathname,flags,0644))==-1) {
-	sprintf(text,"Process %d (%s) got open() error with file \"%s\": %s",current_pcs->pid,current_pcs->name,pathname,sys_errlist[errno]);
-	write_syslog(text);
-	return ERR_CANT_OPEN_FILE;
+	write_syslog("Process %d (%s) got open() error with file \"%s\": %s",current_pcs->pid,current_pcs->name,pathname,sys_errlist[errno]);
+	return ERR_CANT_OPEN_FILE_OR_DIR;
 	}
 sprintf(text,"FILE_%s",file);
 if ((ret=create_stream(text,file,fd,-1,rw,current_pcs))!=OK) {
@@ -6990,8 +7284,8 @@ return push_rstack(text);
 
 
 
-/*** Function for close stream & delete file commands ***/
-com_close_delete(com_num,pc)
+/*** Function for close stream, delete file and rmdir commands ***/
+com_cdr(com_num,pc)
 int com_num,pc;
 {
 struct streams *st;
@@ -7005,27 +7299,37 @@ if (end==pc) return ERR_SYNTAX;
 for(pc=pc+1;pc<=end;) {
 	if ((ret=push_rstack_result(&pc,INT_ILLEGAL))!=OK) return ret;
 	if (isnull(valptr=rstack_ptr->value)) return ERR_INVALID_ARGUMENT;
-	if (com_num==CLOSE) {
+
+	switch(com_num) {
+		case CLOSE:
 		if ((st=get_stream(valptr))==NULL) return ERR_INVALID_STREAM;
 		destroy_stream(st);
 		continue;
-		}
 
-	/* DELETE command. Make sure another process is not currently 
-	   accessing the file. If this process is accessing it destroy the 
-	   stream. */
-	for(st=first_stream;st!=NULL;st=st->next) {
-		if (st->filename!=NULL && !strcmp(st->filename,valptr)) {
-			if (st->owner!=current_pcs) return ERR_FILE_IN_USE;
-			destroy_stream(st); 
+		case DELETE:
+		/* Make sure another process is not currently accessing the 
+		   file. If this process is accessing it destroy the stream. */
+		for(st=first_stream;st!=NULL;st=st->next) {
+			if (st->filename!=NULL && 
+			    !strcmp(st->filename,valptr)) {
+				if (st->owner!=current_pcs) return ERR_FILE_IN_USE;
+				destroy_stream(st); 
+				}
 			}
-		}
 
-	strcpy(pathname,create_path(valptr));
-	if (remove(pathname)) {
-		sprintf(text,"Process %d (%s) got remove() error with file \"%s\": %s",current_pcs->pid,current_pcs->name,pathname,sys_errlist[errno]);
-		write_syslog(text);
-		return ERR_CANT_DELETE_FILE;
+		strcpy(pathname,create_path(valptr));
+		if (remove(pathname)) {
+			write_syslog("Process %d (%s) got remove() error with file \"%s\": %s",current_pcs->pid,current_pcs->name,pathname,sys_errlist[errno]);
+			return ERR_CANT_DELETE_FILE_OR_DIR;
+			}
+		continue;
+
+		case RMDIR:
+		strcpy(pathname,create_path(valptr));
+		if (rmdir(pathname)==-1) {
+			write_syslog("Process %d (%s) got rmdir() error with file \"%s\": %s",current_pcs->pid,current_pcs->name,pathname,sys_errlist[errno]);
+			return ERR_CANT_DELETE_FILE_OR_DIR;
+			}
 		}
 	}
 return OK;
@@ -7085,9 +7389,8 @@ if (isnull(rstack_ptr->value)) return ERR_INVALID_ARGUMENT;
 
 strcpy(pathname,create_path(rstack_ptr->value));
 if ((dir=opendir(pathname))==NULL) {
-	sprintf(text,"Process %d (%s) got opendir() error with dir. \"%s\": %s",current_pcs->pid,current_pcs->name,pathname,sys_errlist[errno]);
-	write_syslog(text);
-	return ERR_CANT_OPEN_DIR;
+	write_syslog("Process %d (%s) got opendir() error with dir. \"%s\": %s",current_pcs->pid,current_pcs->name,pathname,sys_errlist[errno]);
+	return ERR_CANT_OPEN_FILE_OR_DIR;
 	}
 
 /* Get any optional wildcard arguments */
@@ -7175,8 +7478,17 @@ for(pc2=pc;pc2<=endpos;) {
 		}
 	c=*fptr_end;  *fptr_end='\0';
 
+	/* This test is to prevent the text array overflowing and crashing the 
+	   whole system. It won't catch all possibilities but its better than 
+	   not catching any. */
+	if (strlen(fptr_start)>ARR_SIZE) {
+		free(result);  return ERR_STRING_TOO_LONG;
+		}
+
 	/* Get individual argument */
-	if ((ret=push_rstack_result(&pc2,ALL_LEGAL))!=OK) return ret;
+	if ((ret=push_rstack_result(&pc2,ALL_LEGAL))!=OK) {
+		free(result);  return ret;
+		}
 
 	/* Got value , now let sprintf work out format (thought %* formats are
 	   not supported) and append its output to result. Using the 'text'
@@ -7194,7 +7506,12 @@ for(pc2=pc;pc2<=endpos;) {
 				sprintf(text,fptr_start,atoi(val));
 			else if (strchr("fgG",c2)) 
 					sprintf(text,fptr_start,(float)atof(val));
-				else sprintf(text,fptr_start,val);
+			else {
+				/* Try and prevent overflow of text array */
+				if (strlen(val)>ARR_SIZE)
+					return ERR_STRING_TOO_LONG;
+				sprintf(text,fptr_start,val);
+				}
 			}
 		append_string(&result,text);
 		}
@@ -7241,26 +7558,46 @@ com_spawn(com_num,pc)
 int com_num,pc;
 {
 struct process *cur;
-int ret,child,end,type;
-char pid[10],*var,*name,*s;
+struct stat fs;
+int ret,child,end,type,dev;
+char pid[10],devname[100],*var,*name,*s,*w,*valptr;
 char *co[]={ "orphan","child" };
-char *tb[]={ " "," terminal "," background " };
+char *tbd[]={ " "," terminal "," background "," device " };
 
 end=prog_word[pc].end_pos;
 if (end==pc) return ERR_SYNTAX;
 
-/* "term", "back", "child" and "orphan" are all optional */
+/* "term", "back", "dev", "child" and "orphan" are all optional */
 ++pc;
 type=0;
-if (!strcmp(prog_word[pc].word,"term")) {  
+w=prog_word[pc].word;
+if (!strcmp(w,"term")) {  
 	if (be_daemon) return ERR_SYS_IS_DAEMON;
 	type=1;  ++pc;  
 	}
-else if (!strcmp(prog_word[pc].word,"back")) {  type=2;  ++pc;  }
+else if (!strcmp(w,"back")) {  type=2;  ++pc;  }
+else {
+	if (!strcmp(w,"dev")) {  
+		/* Get the device name */
+		++pc;
+		if ((ret=push_rstack_result(&pc,INT_ILLEGAL))!=OK) return ret;
+		valptr=rstack_ptr->value;
+		if (isnull(valptr)) return ERR_INVALID_ARGUMENT;
+		if (strncmp(valptr,"/dev/",5)) 
+			sprintf(devname,"/dev/%s",valptr);
+		else strcpy(devname,valptr);
+
+		/* See if it exists and try to open it */
+		if (stat(devname,&fs)<0) return ERR_CANT_STAT_DEVICE;
+		if ((fs.st_mode & S_IFMT)!=S_IFCHR) return ERR_DEVICE_NOT_CHAR;
+		if ((dev=open(devname,O_RDWR))==-1) return ERR_CANT_OPEN_DEVICE;
+		type=3; 
+		}
+	}
 
 if (!strcmp(prog_word[pc].word,"orphan")) {  child=0;  ++pc;  }
 else if (!strcmp(prog_word[pc].word,"child")) {  child=1;  ++pc;  }
-	else child=1; /* Default to a child process */
+else child=1; /* Default to a child process */
 
 /* Check pid var exists */
 var=prog_word[pc].word;
@@ -7278,11 +7615,11 @@ if (pc<end) {
 else name=current_pcs->name;
 
 /* create process */
-if ((ret=spawn_process(current_pcs,child,1,type))!=OK) return ret;
+if ((ret=spawn_process(current_pcs,child,1,type,dev,devname))!=OK) return ret;
 
-sprintf(text,"Process %d (%s) spawned%s%s process %d (%s).",current_pcs->pid,current_pcs->name,tb[type],co[child],last_pcs->pid,name);
-write_syslog(text);
-	
+if (type==3) sprintf(text,"(%s) ",devname); else text[0]='\0';
+write_syslog("Process %d (%s) spawned%s%s%s process %d (%s).",current_pcs->pid,current_pcs->name,tbd[type],text,co[child],last_pcs->pid,name);
+
 /* Parent process variable gets set to "child" pid , child variable
    gets set to zero. Also set process name if different. */
 cur=current_pcs;
@@ -7347,27 +7684,32 @@ return OK;
 
 
 
-/*** Function for "exists" , "pcsinfo", "relation" & "kill" ***/
-com_eprk(com_num,pc)
+/*** Function for exists, pcsinfo, relation, kill, halt & restart commands ***/
+com_procs(com_num,pc)
 int com_num,pc;
 {
 struct process *pcs,*pcs2,*par;
 char ppid[10];
-int ret,cnt,end;
+int ret,cnt,end,old_status;
 
 end=prog_word[pc].end_pos;
-if (end==pc) return ERR_SYNTAX;
-
-/* Get argument */
-++pc;
-if ((ret=push_rstack_result(&pc,STRING_ILLEGAL))!=OK) return ret;
-pcs=get_process(atoi(rstack_ptr->value));
-if (com_num!=EXISTS && pcs==NULL) return ERR_NO_SUCH_PROCESS;
+if (end==pc) {
+	if (com_num!=HALT) return ERR_SYNTAX;
+	else pcs=current_pcs;
+	}
+else {
+	/* Get argument */
+	++pc;
+	if ((ret=push_rstack_result(&pc,STRING_ILLEGAL))!=OK) return ret;
+	pcs=get_process(atoi(rstack_ptr->value));
+	if (com_num!=EXISTS && pcs==NULL) return ERR_NO_SUCH_PROCESS;
+	}
 
 switch(com_num) {
 	case EXISTS:
 	if (pcs) return push_rstack("1");
 	return push_rstack("0");
+
 
 	case PCSINFO:
 	/* Some potentially usefull info about a process */
@@ -7375,28 +7717,44 @@ switch(com_num) {
 	else sprintf(ppid,"%d",pcs->parent->pid);
 
 	sprintf(text,"%s %s %s %d %d %s %d",pcs->name,pcs->filename,ppid,(int)pcs->created,pcs->local_port,pcs->site,pcs->remote_port);
-	sprintf(text,"%s %s %d %d %d %d",text,status_name[pcs->status],pcs->int_enabled,pcs->interrupted,pcs->mesg_cnt,pcs->colour);
+	sprintf(text,"%s %s %d %d %d %d %d",text,status_name[pcs->status],pcs->int_enabled,pcs->interrupted,pcs->mesg_cnt,pcs->colour,pcs->swapout_after);
+	sprintf(text,"%s %lu %lu %lu %lu",text,pcs->run_cnt[0],pcs->run_cnt[1],pcs->run_cnt[2],pcs->run_cnt[3]);
 	return push_rstack(text);
 
-	case KILL:
-	if (pcs==first_pcs || pcs->status==IMAGE) return ERR_CANT_KILL;
 
-	/* If kill_any = 0 see if process is a descendent, can't kill it if 
-	   not */
-	if (!kill_any) {
+	case KILL:
+	case HALT:
+	case RESTART:
+	if (pcs==first_pcs || pcs->status==IMAGE) return push_rstack(NULL);
+
+	/* If kill_any = 0 see if process is a descendent, can't do anything 
+	   to it if not */
+	if (!kill_any && pcs!=current_pcs) {
 		for(par=pcs->parent;par && par!=current_pcs;par=par->parent);
-		if (par==NULL) return ERR_CANT_KILL;
+		if (par==NULL) return push_rstack(NULL);
 		}	
 
-	/* If already exiting do nothing */
-	if (pcs->status==EXITING) return push_rstack(status_name[EXITING]);
+	/* If process is exiting do nothing */
+	if (pcs->status==EXITING) return push_rstack(NULL);
 	
-	/* Return what it was doing just before we killed it */
-	push_rstack(status_name[pcs->status]);
-	pcs->status=EXITING;
-	sprintf(text,"Process %d (%s) killed process %d (%s).",current_pcs->pid,current_pcs->name,pcs->pid,pcs->name);
-	write_syslog(text);
-	return OK;	
+	old_status=pcs->status;
+	switch(com_num) {
+		case KILL: pcs->status=EXITING;  break;
+
+		case HALT: 
+		if (pcs->status==HALTED) return push_rstack(NULL);
+		pcs->status=HALTED;  
+		break;
+
+		case RESTART: 
+		if (pcs->status!=HALTED) return push_rstack(NULL);
+		pcs->status=RUNNING;
+		}
+	if (pcs==current_pcs)
+		write_syslog("Process %d (%s) %sed itself.",current_pcs->pid,current_pcs->name,commands[com_num].command);
+	else write_syslog("Process %d (%s) %sed process %d (%s).",current_pcs->pid,current_pcs->name,commands[com_num].command,pcs->pid,pcs->name);
+	return push_rstack(status_name[old_status]);
+
 
 	case RELATION:
 	/* get 2nd process */
@@ -7432,12 +7790,13 @@ com_exec(com_num,pc)
 int com_num,pc;
 {
 struct process *cur;
+struct stat fs;
 int i,argc,new_pid,ret,old_real_line;
-int cnt,in,out,child,type,end;
-char *argv[MAX_ARGC+1],pid[10],pid2[20],tmp[200];
-char *var,*file_prog,*ptr,*ptr2,*s,c;
+int cnt,in,out,child,type,end,dev;
+char *argv[MAX_ARGC+1],pid[10],pid2[20],tmp[200],devname[100];
+char *var,*file_prog,*ptr,*ptr2,*s,c,*w,*valptr;
 char *co[]={ "orphan","child" };
-char *tb[]={ " "," terminal "," background " };
+char *tbd[]={ " "," terminal "," background "," device " };
 
 end=prog_word[pc].end_pos;
 if (end-pc<3) return ERR_SYNTAX;
@@ -7445,15 +7804,34 @@ type=0;
 ++pc;
 
 /* "term", "back", "child" & "orphan" are all optional */
-if (!strcmp(prog_word[pc].word,"term")) {  
+w=prog_word[pc].word;
+if (!strcmp(w,"term")) {  
 	if (be_daemon) return ERR_SYS_IS_DAEMON;
 	type=1;  ++pc;  
 	}
-else if (!strcmp(prog_word[pc].word,"back")) {  type=2;  ++pc;  }
+else if (!strcmp(w,"back")) {  type=2;  ++pc;  }
+else {
+	if (!strcmp(w,"dev")) {  
+		/* Get the device name */
+		++pc;
+		if ((ret=push_rstack_result(&pc,INT_ILLEGAL))!=OK) return ret;
+		valptr=rstack_ptr->value;
+		if (isnull(valptr)) return ERR_INVALID_ARGUMENT;
+		if (strncmp(valptr,"/dev/",5)) 
+			sprintf(devname,"/dev/%s",valptr);
+		else strcpy(devname,valptr);
+
+		/* See if it exists and try to open it */
+		if (stat(devname,&fs)<0) return ERR_CANT_STAT_DEVICE;
+		if ((fs.st_mode & S_IFMT)!=S_IFCHR) return ERR_DEVICE_NOT_CHAR;
+		if ((dev=open(devname,O_RDWR))==-1) return ERR_CANT_OPEN_DEVICE;
+		type=3; 
+		}
+	}
 
 if (!strcmp(prog_word[pc].word,"child")) {  child=1;  ++pc;  }
 else if (!strcmp(prog_word[pc].word,"orphan")) {  child=0;  ++pc;  }
-	else child=1;
+else child=1;
 
 /* Check var exists */
 current_var=NULL;
@@ -7522,6 +7900,7 @@ if ((ret=create_process(argv[0],new_pid))!=OK)  {
 	load_process_state(cur);  goto FREEARGS;
 	}
 current_pcs->status=RUNNING;
+current_pcs->swapout_after=cur->swapout_after;
 if (com_num==EXEC) set_string(&current_pcs->filename,file_prog);
 else set_string(&current_pcs->filename,"<INLINE>");
 if (child) current_pcs->parent=cur; 
@@ -7541,6 +7920,10 @@ switch(type) {
 	case 2: /* Run in background */
 	set_string(&current_pcs->site,"<BACK>");
 	break;
+
+	case 3: /* Run on a device */
+	sprintf(text,"<%s>",devname);
+	set_string(&current_pcs->site,text);
 	}	
 
 /* Load program file */
@@ -7566,6 +7949,11 @@ switch(type) {
 	case 2:
 	get_stream("STDIN")->external=-1;  
 	get_stream("STDOUT")->external=-1;
+	break;
+
+	case 3:
+	get_stream("STDIN")->external=dev;  
+	get_stream("STDOUT")->external=dev;
 	}
 
 /* Switch back to exec'ing process */
@@ -7578,9 +7966,9 @@ set_variable(var,current_proc,pid,0);
 
 if (com_num==EXEC) sprintf(tmp,"file \"%s\"",file_prog);
 else strcpy(tmp,"inline code");
-sprintf(text,"Process %d (%s) executed %s creating%s%s process %d (%s).",cur->pid,cur->name,tmp,tb[type],co[child],new_pid,argv[0]);
-write_syslog(text);
+if (type==3) sprintf(text,"(%s) ",devname); else text[0]='\0';
 
+write_syslog("Process %d (%s) executed %s creating%s%s%s process %d (%s).",cur->pid,cur->name,tmp,tbd[type],text,co[child],new_pid,argv[0]);
 ret=OK;
 
 FREEARGS:
@@ -7607,13 +7995,13 @@ if (!strcmp(prog_word[pc+1].word,"from")) {
 else if (!strcmp(prog_word[pc+1].word,"ignore")) {
 		if (len!=2) return ERR_SYNTAX;
 		}
-	else return ERR_SYNTAX;
+else return ERR_SYNTAX;
 
 w=prog_word[pc+2].word;
 if (!strcmp(w,"child")) type=CHILD_INT;
 else if (!strcmp(w,"nonchild")) type=NONCHILD_INT;
-	else if (!strcmp(w,"timer")) type=TIMER_INT;
-		else return ERR_SYNTAX;
+else if (!strcmp(w,"timer")) type=TIMER_INT;
+else return ERR_SYNTAX;
 
 switch(len) {
 	case 2:
@@ -7705,7 +8093,9 @@ if (!ipcs->int_enabled ||
     ipcs->status==CHILD_INT || 
     ipcs->status==NONCHILD_INT ||
     ipcs->status==TIMER_INT ||
-    ipcs->status==IMAGE) return push_rstack("0");
+    ipcs->status==IMAGE ||
+    ipcs->status==HALTED ||
+    ipcs->status==EXITING) return push_rstack("0");
 
 /* See if we're a child of this process */
 if (current_pcs->parent==ipcs) int_type=CHILD_INT;
@@ -7778,7 +8168,8 @@ if (!(prog_word[pc].end_pos-pc)) {
 /* Enable or disable on a procedure call */
 if (!strcmp(prog_word[pc+1].word,"on")) which=1;
 else if (!strcmp(prog_word[pc+1].word,"ignore")) which=0;
-	else return ERR_SYNTAX;
+else return ERR_SYNTAX;
+
 for(proc=first_proc;proc!=NULL;proc=proc->next) {
 	if (!strcmp(proc->name,prog_word[pc+2].word)) {
 		proc->ei_di_int=which*(com_num==EI ? 2 : 1);
@@ -7831,7 +8222,7 @@ tms=localtime(&tm_num);
 switch(com) {
 	case 0: sprintf(text,"%d",(int)boottime);  break;
 	case 1: sprintf(text,"%d",(int)current_pcs->created);  break;
-	case 2: sprintf(text,"%d",avtime.tv_sec);  break;
+	case 2: sprintf(text,"%ld",avtime.tv_sec);  break;
 
 	case 3:
 	sprintf(text,"%02d/%02d/%02d",tms->tm_mday,tms->tm_mon+1,tms->tm_year);
@@ -7852,7 +8243,7 @@ switch(com) {
 	case 7: sprintf(text,"%d",tms->tm_hour);  break;
 	case 8: sprintf(text,"%d",tms->tm_min);  break;
 	case 9: sprintf(text,"%d",tms->tm_sec);  break;
-	case 10: sprintf(text,"%d",avtime.tv_usec);  break;
+	case 10: sprintf(text,"%ld",avtime.tv_usec);  break;
 	case 11: sprintf(text,"%d",tms->tm_wday+1);  break;
 	case 12: sprintf(text,"%d",tms->tm_mday);  break;
 	case 13: sprintf(text,"%d",tms->tm_mon+1);  break;
@@ -7874,10 +8265,12 @@ char *w,val[2];
 
 w=prog_word[pc+1].word;
 if (prog_word[pc].end_pos - pc!=1) return ERR_SYNTAX;
+
 if (!strcmp(w,"off")) com=0;
-	else if (!strcmp(w,"on")) com=1;
-		else if (!strcmp(w,"val")) com=2;
-			else return ERR_SYNTAX;
+else if (!strcmp(w,"on")) com=1;
+else if (!strcmp(w,"val")) com=2;
+else return ERR_SYNTAX;
+
 if (com!=2) current_pcs->colour=com;
 sprintf(val,"%d",current_pcs->colour);
 return push_rstack(val);
@@ -7940,15 +8333,13 @@ else {
 con_addr.sin_family=AF_INET;
 con_addr.sin_port=htons(port);
 if ((consock=socket(AF_INET,SOCK_STREAM,0))==-1) {
-	sprintf(text,"Process %d (%s) got socket() error: %s",current_pcs->pid,current_pcs->name,sys_errlist[errno]);
-	write_syslog(text);
+	write_syslog("Process %d (%s) got socket() error: %s",current_pcs->pid,current_pcs->name,sys_errlist[errno]);
 	return ERR_SOCKET;
 	}
 
 /* Attempt to connect. Doing this will hang the system until the Avios or
    TCP timeout limit is reached, hence the console info messages. */
-sprintf(text,"Process %d (%s) attempting connect to \"%s %d\"...",current_pcs->pid,current_pcs->name,addr,port);
-write_syslog(text);
+write_syslog("Process %d (%s) attempting connect to \"%s %d\"...",current_pcs->pid,current_pcs->name,addr,port);
 
 /* Set up alarm. If connect_timeout is 0 then we wait for TCP timeout so 
    alarm not set */
@@ -7960,12 +8351,11 @@ if (connect_timeout) {
 /* Attempt to connect to remote host until we timeout either via the
    alarm signal or via a TCP timeout (or via a SIGTERM but sod it.. :) */
 if (connect(consock,(struct sockaddr *)&con_addr,sizeof(con_addr))==-1) {
-	if (conalarm_called) sprintf(text,"Connect timed out.");
+	if (conalarm_called) write_syslog("Connect timed out.");
 	else {
-		sprintf(text,"Got connect() error: %s",sys_errlist[errno]);
+		write_syslog("Got connect() error: %s",sys_errlist[errno]);
 		close(consock);
 		}
-	write_syslog(text);
 	return ERR_CONNECT;
 	}
 signal(SIGALRM,SIG_IGN);
@@ -7973,8 +8363,7 @@ write_syslog("Connect succeeded.");
 
 /* Set socket to non-blocking */
 if ((fcntl(consock,F_SETFL,O_NONBLOCK))==-1) {
-	sprintf(text,"Process %d (%s) got fcntl() error: %s",current_pcs->pid,current_pcs->name,sys_errlist[errno]);
-	write_syslog(text);
+	write_syslog("Process %d (%s) got fcntl() error: %s",current_pcs->pid,current_pcs->name,sys_errlist[errno]);
 	close(consock);
 	return ERR_SOCKET;
 	}
@@ -7996,31 +8385,50 @@ return push_rstack(text);
 
 
 /*** Echo command which sends echo/noecho telopt codes to user client 
-     down a socket ***/
+     down a socket or does termio stuff if on a terminal ***/
 com_echo(com_num,pc)
 int com_num,pc;
 {
+struct termio tio;
 char *w,seq[4],val[2];
 int on;
 
 if (prog_word[pc].end_pos - pc!=1) return ERR_SYNTAX;
-if (!is_sock_stream(current_instream)) goto RET; /* Can't set if not socket */
+if (current_instream==NULL) return ERR_INVALID_STREAM;
+
+/* Can't set echoing with a message queue or a file */
+if (isinteger(current_instream->name,0) ||
+    current_instream->filename!=NULL) goto RET;
 
 w=prog_word[pc+1].word;
+
 if (!strcmp(w,"off")) on=0;
 else if (!strcmp(w,"on")) on=1;
-	else if (!strcmp(w,"val")) goto RET;
-		else return ERR_SYNTAX;
+else if (!strcmp(w,"val")) goto RET;
+else return ERR_SYNTAX;
 
 if (on) {
-	current_instream->echo=1;
-	sprintf(seq,"%c%c%c",255,252,1);
-	write_stream(seq);
+	/* If sock stream send telopt code */
+	if (is_sock_stream(current_instream)) {
+		current_instream->echo=1;
+		sprintf(seq,"%c%c%c",255,252,1);
+		write_stream(seq);
+		goto RET;
+		}
+	/* else set terminal echo mode */
+	ioctl(current_instream->external,TCGETA,&tio);
+	tio.c_lflag |= ECHO;
+	ioctl(current_instream->external,TCSETA,&tio);
 	}
 else {
-	current_instream->echo=0;
-	sprintf(seq,"%c%c%c",255,251,1);
-	write_stream(seq);
+	if (is_sock_stream(current_instream)) {
+		current_instream->echo=0;
+		sprintf(seq,"%c%c%c",255,251,1);
+		write_stream(seq);
+		}
+	ioctl(current_instream->external,TCGETA,&tio);
+	tio.c_lflag &= ~ECHO;
+	ioctl(current_instream->external,TCSETA,&tio);
 	}
 
 RET:
@@ -8028,4 +8436,4 @@ sprintf(val,"%d",current_instream->echo);
 return push_rstack(val);
 }
 
-/********************* The End is not nigh, its here! *********************/
+/******************* Merry Christmas and a Happy New Year! ******************/

@@ -10,7 +10,7 @@ while TRUE
 	foreach pid name in $pcs
 		if [trap [set status [elements [pcsinfo pid] 8]]]=OK
 			if name="talkclient" and status!="IMAGE"
-				trap [kill pid]
+				kill pid
 			endif
 		endif
 	nexteach

@@ -1,5 +1,5 @@
 /******************************************************************************
-                           AVIOS 1.3.1 header file
+                           AVIOS 1.4.0 header file
                       Copyright (C) Neil Robertson 1997
  ******************************************************************************/
 
@@ -12,9 +12,9 @@
 
 #define MAX_INCLUDE_LEVELS 10
 #define MEMORY_RESERVE 500
-#define NUM_COMS 123
-#define NUM_ERRS 57
-#define NUM_COLS 21
+#define NUM_COMS 135
+#define NUM_ERRS 60
+#define NUM_COLS 22
 #define ARR_SIZE 5000
 #define MAX_ARGC 100
 
@@ -23,6 +23,9 @@
 #define MAX_ERRORS 1
 #define SWAPOUT_AFTER 10  /* Max no. instructions run before process swapout */
 #define EXIT_REMAIN 5
+
+/* Default permissions for mkdir command if no permission option given */
+#define MKDIR_PERM_DEF 0755 
 
 /* Internal stream types. There is only 1 at the moment. */
 #define MESG_Q 0
@@ -64,7 +67,7 @@ extern char *sys_errlist[];
 struct process {
 	char *name,*filename,*site;
 	int pid,pc,status,old_status;
-	int over,num_words,local_port,remote_port;
+	int swapout_after,over,num_words,local_port,remote_port;
 	struct process *parent;
 
 	struct program *prog_word;
@@ -82,6 +85,7 @@ struct process {
 	int mesg_cnt,sleep_sec,sleep_usec,wait_pid,death_pid;
 	int timer_sec,timer_usec,err_cnt,exit_cnt,input_vnum;
 	int eof,exit_code,int_enabled,interrupted,colour;
+	long unsigned int run_cnt[4];
 	time_t created;
 
 	struct process *prev,*next;
@@ -92,6 +96,8 @@ struct process {
 enum process_states {
 	IMAGE,
 	RUNNING, 
+	HALTED,
+	EXITING,
 	OUTPUT_WAIT,
 	INPUT_WAIT, 
 	CHILD_DWAIT, 
@@ -99,13 +105,14 @@ enum process_states {
 	SLEEPING, 
 	CHILD_INT,
 	NONCHILD_INT,
-	TIMER_INT,
-	EXITING
+	TIMER_INT
 	};
 
 char *status_name[]={
 	"IMAGE",
 	"RUNNING",
+	"HALTED",
+	"EXITING",
 	"OUTPUT_WAIT",
 	"INPUT_WAIT",
 	"CHILD_DWAIT",
@@ -113,8 +120,7 @@ char *status_name[]={
 	"SLEEPING",
 	"CHILD_INT",
 	"NONCHILD_INT",
-	"TIMER_INT",
-	"EXITING"
+	"TIMER_INT"
 	};
 
 
@@ -135,7 +141,7 @@ struct ports {
 struct streams {
 	char *name,*filename;
 	int internal,external;
-	int rw,block,con_sock,echo,locked;
+	int device,rw,block,con_sock,echo,locked;
 	struct process *owner;
 	struct streams *prev,*next;
 	} *first_stream,*last_stream,*current_instream,*current_outstream;
@@ -213,14 +219,15 @@ struct result_stack {
 
 /* Forward declaration of command functions */
 int com_alias(),com_var(),com_sharing(),com_stid(),com_maths1(),com_replace();
-int com_strings2(),com_strings3(),com_mathsv(),com_goto(),com_label();
+int com_strings2(),com_strings3(),com_mathsv(),com_shift();
+int com_goto(),com_label();
 int com_if(),com_else(),com_endif(),com_while(),com_wend_next();
 int com_do(),com_until(),com_for(),com_foreach();
 int com_choose(),com_val_def(),com_chosen(),com_break(),com_continue();
 int com_call(),com_proc(),com_return_endproc(),com_exit_sleep();
 int com_input(),com_strings1(),com_count(),com_arrsize(),com_trap();
-int com_streams(),com_open(),com_close_delete(),com_seek(),com_dir();
-int com_format(),com_spawn(),com_wait(),com_waitpid(),com_eprk(),com_exec();
+int com_streams(),com_open(),com_cdr(),com_seek(),com_dir();
+int com_format(),com_spawn(),com_wait(),com_waitpid(),com_procs(),com_exec();
 int com_onint(),com_interrupt(),com_timer(),com_ei_di(),com_gettime();
 int com_colour(),com_connect(),com_echo();
 
@@ -248,6 +255,10 @@ struct {
 		"abs", PCV,com_maths1,
 		"sgn", PCV,com_maths1,
 		"rand",PCV,com_maths1,
+		"cpl", PCV,com_maths1,
+
+		"bsl",PCV,com_shift,
+		"bsr",PCV,com_shift,
 
 		"mulstr",  PCV,com_strings2,
 		"substr",  PCV,com_strings3,
@@ -257,6 +268,9 @@ struct {
 		"mul",     PCV,com_mathsv,
 		"div",     PCV,com_mathsv,
 		"mod",     PCV,com_mathsv,
+		"bwa",     PCV,com_mathsv,
+		"bwo",     PCV,com_mathsv,
+		"bwx",     PCV,com_mathsv,
 		"atoc",    PCV,com_mathsv,
 		"ctoa",    PCV,com_mathsv,
 		"max",     PCV,com_mathsv,
@@ -273,6 +287,7 @@ struct {
 		"if",   PCA,com_if,
 		"else", PCA,com_else,
 		"endif",PCA,com_endif,
+		"fi",   PCA,com_endif,
 
 		"while",   PCA,com_while,
 		"wend",    PCA,com_wend_next,
@@ -288,8 +303,9 @@ struct {
 		"default",PCA,com_val_def,
 		"chosen", PCA,com_chosen,
 
-		"break",   PCA,com_break,
-		"continue",PCA,com_continue,
+		"break",    PCA,com_break,
+		"continue", PCA,com_continue,
+		"acontinue",PCA,com_continue,
 
 		"call",   PCA,com_call,
 		"vcall",  PCA,com_call,
@@ -347,11 +363,13 @@ struct {
 		"unlock",  PCV,com_streams,
 
 		"open",  PCV,com_open,
-		"close", PCV,com_close_delete,
-		"delete",PCV,com_close_delete,
+		"close", PCV,com_cdr,
+		"delete",PCV,com_cdr,
+		"rmdir", PCV,com_cdr,
 		"stat",  PCV,com_strings1,
 		"rename",PCV,com_strings2,
 		"copy",  PCV,com_strings2,
+		"mkdir", PCV,com_strings2,
 		"chmod", PCV,com_strings2,
 		"cseek", PCV,com_seek,
 		"lseek", PCV,com_seek,
@@ -364,10 +382,12 @@ struct {
 		"spawn",   PCV,com_spawn,
 		"wait",    PCV,com_wait,
 		"waitpid", PCV,com_waitpid,
-		"exists",  PCV,com_eprk,
-		"pcsinfo", PCV,com_eprk,
-		"relation",PCV,com_eprk,
-		"kill",    PCV,com_eprk,
+		"exists",  PCV,com_procs,
+		"pcsinfo", PCV,com_procs,
+		"relation",PCV,com_procs,
+		"kill",    PCV,com_procs,
+		"halt",    PCV,com_procs,
+		"restart", PCV,com_procs,
 		"exec",    PCV,com_exec,
 		"iexec",   PCV,com_exec,
 
@@ -401,6 +421,9 @@ enum command_vals {
 	ABS,
 	SGN,
 	RAND,
+	CPL,
+	BSL,
+	BSR,
 	MULSTR,
 	SUBSTR,
 	ADDSTR,
@@ -409,6 +432,9 @@ enum command_vals {
 	MUL,
 	DIV,
 	MOD,
+	BWA,
+	BWO,
+	BWX,
 	ATOC,
 	CTOA,
 	MAXCOM,
@@ -423,6 +449,7 @@ enum command_vals {
 	IF,
 	ELSE,
 	ENDIF,
+	FI,
 	WHILE,
 	WEND,
 	DO,
@@ -437,6 +464,7 @@ enum command_vals {
 	CHOSEN,
 	BREAK,
 	CONTINUE,
+	ACONTINUE,
 	CALL,
 	VCALL,
 	PROC,
@@ -483,9 +511,11 @@ enum command_vals {
 	OPEN,
 	CLOSE,
 	DELETE,
+	RMDIR,
 	STAT,
 	RENAME,
 	COPY,
+	MKDIR,
 	CHMOD,
 	CSEEK,
 	LSEEK,
@@ -499,6 +529,8 @@ enum command_vals {
 	PCSINFO,
 	RELATION,
 	KILL,
+	HALT,
+	RESTART,
 	EXEC,
 	IEXEC,
 	ONINT,
@@ -564,7 +596,7 @@ char *error_mesg[NUM_ERRS]={
 	"Duplicate label",
 	"Duplicate procedure name",
 	"Invalid procedure name",
-	"Missing ENDIF",
+	"Missing ENDIF or FI",
 	"Parameter count mismatch",
 	"Parameter is an array",
 	"Command cannot be nested",
@@ -573,21 +605,24 @@ char *error_mesg[NUM_ERRS]={
 	"Invalid stream direction",
 	"Unset stream",
 	"Write failed on stream",
-	"Cannot open file",
-	"Cannot delete file",
+	"Cannot open file or directory",
+	"Cannot delete file or directory",
 	"Cannot rename file",
 	"Cannot stat filesystem entry",
 	"Cannot change filesystem entry permissions",
 	"File is in use",
-	"Cannot open directory",
+	"Cannot create directory",
 	"Maximum process count reached",
 	"No such process id",
-	"Process cannot be killed",
 	"Interrupt procedure cannot have arguments",
 	"Unknown host",
 	"Error while creating or setting socket",
 	"Connect failure",
-	"Cannot create terminal process if system is running as a daemon"
+	"Cannot create terminal process if system is running as a daemon",
+	"Cannot stat device",
+	"Device is not a character device",
+	"Cannot open device",
+	"String too long"
 	};
 
 
@@ -634,26 +669,29 @@ enum error_codes {
 	ERR_INVALID_STREAM_DIR,
 	ERR_UNSET_STREAM,
 	ERR_WRITE_FAILED,
-	ERR_CANT_OPEN_FILE,
-	ERR_CANT_DELETE_FILE,
+	ERR_CANT_OPEN_FILE_OR_DIR,
+	ERR_CANT_DELETE_FILE_OR_DIR,
 	ERR_CANT_RENAME_FILE,
 	ERR_CANT_STAT_FS_ENTRY,
 	ERR_CANT_CHANGE_FS_ENTRY_PERM,
 	ERR_FILE_IN_USE,
-	ERR_CANT_OPEN_DIR,
+	ERR_CANT_CREATE_DIR,
 	ERR_MAX_PROCESSES,
 	ERR_NO_SUCH_PROCESS,
-	ERR_CANT_KILL,
 	ERR_INT_PROC_ARGS,
 	ERR_UNKNOWN_HOST,
 	ERR_SOCKET,
 	ERR_CONNECT,
-	ERR_SYS_IS_DAEMON
+	ERR_SYS_IS_DAEMON,
+	ERR_CANT_STAT_DEVICE,
+	ERR_DEVICE_NOT_CHAR,
+	ERR_CANT_OPEN_DEVICE,
+	ERR_STRING_TOO_LONG	
 	};
 
 char *colcode[NUM_COLS]={
-/* Non-colour codes: reset, bold, underline, blink, reverse */
-"\033[0m", "\033[1m", "\033[4m", "\033[5m", "\033[7m",
+/* Non-colour codes: reset, bold, underline, blink, reverse, cls */
+"\033[0m", "\033[1m", "\033[4m", "\033[5m", "\033[7m","\033[H\033[J",
 
 /* Foreground colours: black, red, green, yellow */
 "\033[30m","\033[31m","\033[32m","\033[33m",
@@ -666,7 +704,7 @@ char *colcode[NUM_COLS]={
 
 /* Codes used in a string to produce the colours when prepended with a '~' */
 char *colcom[NUM_COLS]={
-"RS","OL","UL","LI","RV",
+"RS","OL","UL","LI","RV","CL",
 "FK","FR","FG","FY",
 "FB","FM","FT","FW",
 "BK","BR","BG","BY",
@@ -678,7 +716,7 @@ int num_words,be_daemon,max_processes,max_mesgs,max_errors,exit_remain;
 int swapout_after,process_count,memory_reserve,eval_result,real_line;
 int inst_cnt,colour_def,kill_any,child_die,ignore_sigterm,wait_on_dint;
 int pause_on_sigtstp,consock,conalarm_called,connect_timeout;
-int allow_ur_path,tuning_delay,qbm;
+int allow_ur_path,tuning_delay,qbm,enhanced_dump,avios_cont;
 
 time_t boottime;
 struct timeval avtime;

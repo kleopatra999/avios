@@ -112,7 +112,15 @@ endproc
 
 #---- Send a message to a users process ----
 proc write_user pid mesg
-while [not [interrupt pid with mesg]]; wend
+var status
+
+# Don't interrupt if image, exiting or halted. If image then we've
+# got problems elsewhere in this code as this should never be true
+if [set status [elements [pcsinfo pid] 8]]!="IMAGE" and \
+   status!="EXITING" and \
+   status!="HALTED"
+	while [not [interrupt pid with mesg]]; wend
+endif
 endproc
 
 
@@ -120,13 +128,14 @@ endproc
 #---- This sends mesg to all talker clients (users) in the given room
 #---- except for except_pid. If room is "" then message is sent to all rooms.
 proc write_room room except_pid mesg
-var pid prog
+var pid prog rm
 
 foreach pid prog in $pcs
 	if prog!=TALKC or pid=except_pid or [elements [pcsinfo pid] 8]="IMAGE"
 		continue
 	endif
-	if userroom:pid!=room and room!=""; continue; endif
+	if [trap [set rm userroom:pid]]!=OK; continue; endif
+	if rm!=room and room!=""; continue; endif
 	call write_user pid mesg
 nexteach
 endproc

@@ -1,5 +1,5 @@
 
-                              *** COLOUR ***
+                  *** COLOUR (and other screen stuff) ***
 
 Avios supports Ansi colour codes (the same ones as the NUTS talker system)
 and so can be used to send coloured messages to people using telnet clients
@@ -13,7 +13,9 @@ command.
 
     Bear in mind that if you're on a black and white or green screen terminal 
 all you'll get is various shades of grey/green instead of colours (if you get 
-anything at all). All the commands start with a ~ and are the following:
+anything at all). All the commands start with a ~.
+    The following commands are related but are not actually colour commands
+but also affect the text:
 
 RS - reset terminal to default colour status
 RV - reverse video
@@ -21,6 +23,7 @@ OL - bold
 LI - blink/flash text (only the text flashes , not the background colour). 
 	This won't work on all terminals , some xterms simply set it to bold.
 UL - underline text, this doesn't work on all terminals.
+CL - Clear screen. 
 
 FK - set foreground colour to black
 FR - foreground red

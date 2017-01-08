@@ -7,21 +7,21 @@ code is all in one module** and all the header is just one module there is no
 makefile, you just call the compiler direct from the command line (or make
 up a short shell file) as so:
 
-Linux: cc -DLINUX avios130.c
+Linux: cc -DLINUX avios140.c
 
-OSF, SunOS5.5: cc avios130.c
+OSF, SunOS5.5: cc avios140.c
     (For SunOS above make sure cc is a link or alias to the berkeley
      compiler which is usually /usr/ucb/cc. SunOS GCC might not work)
 
-HP-UX 10.01: cc -Ae -DNO_USLEEP avios130.c   
-HP-UX 10.20: cc -Ae avios130.c  
+HP-UX 10.01: cc -Ae -DNO_USLEEP avios140.c   
+HP-UX 10.20: cc -Ae avios140.c  
     (You'll need the HP-UX ANSI compiler for both of the above)
 
-FreeBSD: cc -DFREEBSD avios130.c  
+FreeBSD: cc -DFREEBSD avios140.c  
      (Some setups may have problems with the crypt() call. If this is the
       case then add -DNO_CRYPT on the compile line.)
 
-AIX: cc avios130.c (maybe, I'm just guessing)
+AIX: cc avios140.c (maybe, I'm just guessing)
 
 If you have a system that is not mentioned here and it compiles successfully
 on it please let me know what the compiler command line options are so I can

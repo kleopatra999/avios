@@ -12,7 +12,8 @@ process). So for example if a process is set up as a TERM process STDIN &
 STDOUT will point to the unix stdin and stdout, if its set up on a port then
 it points to the socket that is connected to the port and lastly if its set
 up as a background (BACK) process they are unset so if you try to use them you
-will get an error. "MESG_Q" is the message queue of the process and normally
+will get an error. If a process has been set to use a device they will point to
+that device. "MESG_Q" is the message queue of the process and normally
 it would only read off this queue to get messages from other process but you
 can write to it if you want. Please note that there is no standard error as
 I felt there was little need for it in this sort of enviroment.

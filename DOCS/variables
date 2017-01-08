@@ -169,9 +169,11 @@ Process specific ones:
 
    $ppid - Process id of the parent process. If it doesn't have one its zero.
 
-   $site - Current site process is connected to. 
+   $site - Current site process is connected to. Value is set to <TERM> or
+           <BACK> if process is a terminal or background one and </dev/....>
+           if connected to a device.
 
-   $lport - Local port it is on as setup in the init file.
+   $lport - Local port process is on as setup in the init file.
 
    $rport - Current remote port the client the user is connecting to us with is
             using.

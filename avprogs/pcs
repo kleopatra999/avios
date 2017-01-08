@@ -1,6 +1,8 @@
 # A very simple console program. I could make it flashier but I can't be
 # bothered.
 
+&stdalias
+
 proc main
 var line com
 
@@ -8,11 +10,14 @@ print [format "\n~BB*** AVIOS CONSOLE ***\n\n"]
 while 1
 	print ">"
 	input line
-	if line=""; continue; endif
+	if line=""; continue; fi
 	set com [head line]
 	choose com
 		value "ps"; call ps_proc; break
-		value "kill"; call kill_proc [tail line]; break;
+		value "kill"; call proc_action com [tail line]; break;
+		value "halt"; call proc_action com [tail line]; break;
+		value "restart"; call proc_action com [tail line]; break;
+		value "run"; call run_proc [tail line]; break;
 		value "exit"; exit 0
 
 		default
@@ -36,22 +41,65 @@ endproc
 
 
 
-proc kill_proc killid
-var pid pname err
+proc proc_action com pid
+var pid2 pname status
 
-if killid=""
-	printnl "Kill which process?";  return
-endif
-foreach pid pname in $pcs
-	if killid=pid
-		if [set err [trap [kill pid]]]
-			printnl "Unable to kill process.";  return
-		endif
-		printnl "Process killed."
+if pid=""
+	printnl com " which process?";  return
+fi
+foreach pid2 pname in $pcs
+	if pid=pid2
+		choose com
+			value "kill"; trap [set status [kill pid]];  break;
+			value "halt"; trap [set status [halt pid]];  break;
+			value "restart"; trap [set status [restart pid]];  
+		chosen
+		if status=""
+			printnl "Unable to " com " process.";  return
+		fi
+		printnl "Process " com "ed."
 		return
-	endif
+	fi
 nexteach
 printnl "Process does not exist."
 endproc	
 
+
+proc run_proc line
+var where device file pname pos pid res
+var usage
+
+set usage "run 'term/back/dev <device>' <filename> [<progname>] [<args>]"
+
+if [set where [head line]]=""
+	 printnl usage;  return
+fi
+
+if where="dev"
+	set device [elements line 2];  set pos 3
+else; set pos 2; fi
+
+if [set file [elements line pos]]=""
+	printnl usage;  return
+fi
+inc pos
+
+if [set pname [elements line pos]]=""; set pname file; fi
+inc pos
+
+if pos<=[count line]
+	set line [elements line pos [count line]]
+else; set line ""; fi
+
+if where="term"
+	set res [trap [exec term orphan pid file pname line]]
+else 
+	if where="back"
+		set res [trap [exec back orphan pid file pname line]]
+	else; set res [trap [exec dev device orphan pid file pname line]]
+	fi
+fi
+
+if res!=OK; printnl "Unable to run process"; fi
+endproc
 

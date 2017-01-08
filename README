@@ -3,7 +3,9 @@
 
 This is just a short introduction to Avios as most of the documentation
 you will need is in the DOCS directory. If you're in a hurry and can't
-be bothered to read this yet read DOCS/comp_and_run for compiling info.
+be bothered to read this yet read DOCS/comp_and_run for compiling info
+and DOCS/versions for information pertaining to the new features in thie
+release.
 
 The OS
 ------
@@ -94,16 +96,21 @@ have found some suspected bugs please email me about it (but *please* RTFM
 first and make sure you're not getting it wrong!!)
 
 
-NOTE: Any further releases of Avios will be restricted to patch releases. There
-      will be no further major or minor release versions. This is due to lack
-      of interest in the system.
+Versions
+--------
+The last version releases I had planned to do were 1.3.x releases. However
+I decided that I couldn't really leave Avios incomplete (which it was) so
+I have created 1.4 which has a hell of a lot of new additions which I hope
+you will find useful. The DOCS/versions file will show you the large number
+of additions over 1.3.1.
+   Having said this I reckon that 1.4 could be the last major release of
+Avios simply because I can't think of anything else to add and also because
+now I want to turn my attention to other projects. But we'll see :)
+
 
 Neil Robertson
 
-October 1997
+December 1997
 
 Email: neil@ogham.demon.co.uk
 
-
-NB: There is a harmless easter egg in the code which contains an ongoing
-    story (updated with each new release), see if you can find it :)

@@ -51,6 +51,15 @@ pause_on_sigtstp YES/NO
     If YES then Avios will pause after doing a status dump due to a control-Z
     (SIGTSTP) , if NO then it continues running. Default is YES.
 
+enhanced_dump YES/NO
+    If set to yes then a lot of extra process statistics and data will be
+    printed in a process status dump. There will be 2 extra lines.
+    Line 1 will contain:
+      time created, remote site, remote port, ints enabled, interrupted, colour on
+    Line 2 will contain the 4 process run counts which can be used for 
+    performance debugging. These values may wrap after a few days continuous
+    running since they're contained in long ints. Default is NO.
+
 colour_def ON/OFF
     If ON then any colour commands in strings sent to STDOUT by processes will 
     be converted to ansi colour codes by default. If OFF then colour commands 
@@ -114,17 +123,34 @@ tuning_delay <microseconds>
 
 
 The PROCESSES section has the following format:
-<I/O source> <process filename> <process name> [<command line arguments>]
-<I/O source> <process filename> <process name> [<command line arguments>]
-<I/O source> <process filename> <process name> [<command line arguments>]
+<I/O source>[,<swapout_after>] <process filename> <process name> [<command line arguments>]
+<I/O source>[,<swapout_after>] <process filename> <process name> [<command line arguments>]
+<I/O source>[,<swapout_after>] <process filename> <process name> [<command line arguments>]
 :
 :
+
+eg:
+PROCESSES:
+4000     tomsfile   tom   one two three
+TERM,20  dicksfile  dick  a b
+5000,100 harrysfile harry 1 2 3
+ttyS1    fred       fred
 
 The I/O source is either: 
     TERM  - Process runs on the terminal (ie uses unix stdin , out & err).
     BACK  - Process is a background one and has no standard I/O (but it can 
             still use printlog)
    <port> - The port number the image of the process will listen on.
+ <device> - The name of the character device (normally a tty) to use as its
+            terminal eg: ttyS1. The device MUST reside in the /dev directory
+            and you must have read and write permission on it. You could also 
+            put /dev/ttyS1 for clarity as it makes no difference.
+
+Appended to this is the optional swapout_after value which overrides the
+parameter swapout_after value for the given process. There must be NO SPACES
+between the source, the comma and the swapout. This parameter allows you to
+prioritise processes and its value is inherited by any processes spawned and
+exec'd by them.
 
 The process filename is the name of the file where the process source code
 is kept whilst the process name is the name the process will be given when

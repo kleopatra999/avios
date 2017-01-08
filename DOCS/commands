@@ -58,22 +58,24 @@ eg: set tom [addstr "hello " "world]
 
 -------------------------------------------------------------------------------
 
-tset <variable> <old value> <new value>
+tset <variable> [<operator>] <old value> <new value>
 
 This is the test and set command which allows the testing and setting of
 shared variables atomically. Ie the process cannot be swapped out while it
 is doing the combined test and set and so this allows shared variables to
 be used as semaphores in interprocess communications. If you were to do the
 same operation using an "if" statement then the process may get swapped out 
-between the test and set which could cause problems. The command checks
-the variable agains the old value. If the variable has this value then it
-will set it to the new value and return 1. If not it will not change the 
-variable and will return 0.
+between the test and set which could cause problems. The command tests the
+variables value against the old value depending on the operator (If no operator
+is given it defaults to = to preserve syntax compatability with previous
+versions of Avios). If the result is true then the command will set the 
+variable to the new value and return 1. If not it will not change the variable 
+and will return 0.
   This command can also be used on ordinary variables as shorthand for an
-if var=....; set var..; endif;  statement.
+if var=....; set var..; endif;  statement for example.
 
 eg: set pid pcs?"testprog"
-    while [not [tset pid.testvar "old" "new"]]; wend  # Spin on semaphore
+    while [not [tset pid.testvar>10 1]]; wend  # Spin on semaphore
 
 -------------------------------------------------------------------------------
 
@@ -123,6 +125,51 @@ mod <numeric list>
 These are the maths commands, mod being the modulus.
 
 eg: printnl [add 1 2 3]
+
+-------------------------------------------------------------------------------
+
+bwa <number> <number>
+bwo <number> <number>
+bwx <number> <number>
+
+These commands are the bitwise AND, OR and XOR commands respectively. Bear
+in mind that the internal representation of the number is as a C 4 byte
+integer and results will be affected accordingly. 
+
+eg: 
+
+# Print out file permissions in unix "ls" command style
+print "File> "; input file
+set perms [elements [stat file] 3] # Get file permissions eg: 644, 711 etc
+for i 1 to 3
+     set val [midstr perms i]
+     if [bwa val 4]; print "r"; else; print "-"; endif
+     if [bwa val 2]; print "w"; else; print "-"; endif
+     if [bwa val 1]; print "x"; else; print "-"; endif
+next
+printnl
+
+-------------------------------------------------------------------------------
+
+cpl <number>
+
+This returns the ones complement of the number (~number in C) which is simply
+the reversal of all the bits in the integer ie: 0's become 1 and 1's become
+0. To get the twos complement simply add 1 to the result.
+
+eg: printnl [cpl 0]
+
+-------------------------------------------------------------------------------
+
+bsl <number> <shift by>
+bsr <number> <shift by>
+
+These are the bit shift left and bit shift right commands. They perform the
+same functions as << and >> in C. The shift by is how may bits the number is
+shifted up or down by.
+
+eg: printnl [bsl 1 2]
+    printnl [bsr 4 2]
 
 -------------------------------------------------------------------------------
 
@@ -176,16 +223,21 @@ if <expression>
   <statements>
 [else]
   <statements>
-endif
+endif/fi
 
 The if statement works in the expected way and _must_ be terminated with an
-endif. The else statement is optional.
+endif or fi. The else statement is optional. The fi command is new for 1.4
+and I added it because on reflection I felt that endif was a bit long winded
+(you can tell I'm a C coder at heart :) but the endif remains for backwards 
+compatability.
 
-eg: if fred=1 
-       printnl "YES" 
-    else 
-       printnl "NO" 
+eg: if fred=1; printnl "YES" 
+    else; printnl "NO" 
     endif
+
+   if fred=2; printnl "YES 2";
+   else; printnl "NO 2"
+   fi
 
 -------------------------------------------------------------------------------
 
@@ -248,8 +300,11 @@ choose <value>
 chosen
 
 This is an analog of the C switch statement but it has one crucial difference
-which is that the continue statement plays a part and it will cause the
+which is that the continue command plays a part and it will cause the
 interpreter to jump back to the beginning of the choose as in a loop.
+However you can use the acontinue (alternative continue) command (new to 1.4) 
+which behaves in the "normal" way inside a choose (ie it will continue from the
+start of the loop body surrounding the choose structure).
 
 eg: choose cnt
        value 1; printnl "Its 1, 3 or 4"; break
@@ -263,6 +318,7 @@ eg: choose cnt
 
 break [<argument>]
 continue [<argument>]
+acontinue [<argument>]
 
 These work as per the commands in C except for continue within the choose
 structure (see above). The optional arguments set the $break and $cont 
@@ -776,28 +832,34 @@ eg: set encrypted_passwd [crypt passwd "NU"]
 
 -------------------------------------------------------------------------------
 
-spawn [term/back] [child/orphan] <pid var> [<new process name>]
+spawn [term/back/dev <device>] [child/orphan] <pid var> [<new process name>]
 
-This will spawn a new process. The term and back options allow you to run the 
-new process on the system console or in the background instead of them using 
-the port of the current process. The child/orphan option will decide whether
-the new processes parent pid will be set to that of the spawning process
-or will be set to zero. If this option is ommited it defaults to a child 
-process. The pid variable will be set to the pid of the process created in the 
-enviroment of the parent process but will be set to zero in the enviroment of 
-the child/orphan process (which will commence its execution from the command 
-immediately following "spawn" in the code). The optional new process name will 
-rename the new process otherwise the process is given the same name as its 
-parent.
+This will spawn a new process. The term, back and dev options allow you to 
+run the new process on the system console in the background or on a given 
+device (normally a tty) instead of them using the port of the current process. 
+If a device is to be used the device name must given after the dev option. 
+The child/orphan option will decide whether the new processes parent pid will 
+be set to that of the spawning process or will be set to zero. If this option 
+is ommited it defaults to a child process. The pid variable will be set to the 
+pid of the process created in the enviroment of the parent process but will be 
+set to zero in the enviroment of the child/orphan process (which will commence 
+its execution from the command immediately following "spawn" in the code). 
+The optional new process name will rename the new process otherwise the 
+process is given the same name as its parent.
 
 eg: var pid
     spawn child pid "tom"
     if pid; printnl "PARENT"; else; printnl "CHILD"; endif
+
+    spawn dev "/dev/tty" orphan pid 
    
 -------------------------------------------------------------------------------
 
-exec [term/back] [child/orphan] <pid var> <filename> <process name> [<arguments>]
-iexec [term/back] [child/orphan] <pid var> <program code> <process name> [<arguments>]
+exec [term/back/dev <device>] [child/orphan] <pid var> \
+     <filename> <process name> [<arguments>]
+
+iexec [term/back/dev <device>] [child/orphan] <pid var> \
+      <program code> <process name> [<arguments>]
 
 These will create an entirely new process, either loading up and running the 
 program file given or running the inline code passed with iexec giving it the 
@@ -808,7 +870,8 @@ procedure and if the child option is specified its parent id will be set to
 that of the exec'ing process else it'll be set to zero.
     The term and back options allow you to run the new process on the system
 console or in the background instead of them using the port of the current
-process and the child and orphan options allow you to decide whether the 
+process, the dev option allows you to run it on a tty device (the device name
+must follow) and the child and orphan options allow you to decide whether the 
 new process will be a child of the exec'ing one or not. If ommited it defaults
 to being a child.
 
@@ -822,6 +885,9 @@ eg: var pid
 
 In the above you could also do the following:
     exec child pid "progfile tom hello world"
+
+eg: var pid
+    exec dev "/dev/ttyS1" child pid "login" "login" 
 
 ie you can have the filename , process name and arguments all in one string.
 
@@ -856,7 +922,13 @@ following:
 
 <process name> <process main filename> <parent pid> <time created> \
 <site connected (if any)> <status> <interrupts enabled> <interrupted> \
-<message count or queue> <colour on>
+<message count or queue> <colour on> <swapout after> \
+<run count 1> <run count 2> <run count 3> <run count 4>
+
+The fields are all self explanitory except for the last line:
+The run count fields are system statistics on how many times the process has
+been in scope in certain parts of the scheduler code. I put them in for 
+performance optimisation purposes but I doubt you'll ever need them.
 
 -------------------------------------------------------------------------------
 
@@ -879,21 +951,40 @@ eg: var pid
 -------------------------------------------------------------------------------
 
 kill <pid>
+halt [<pid>]
+restart <pid>
 
-This command will kill the given process given the following conditions:
+These command will kill, halt or restart the given process providing the 
+following conditions are met:
+
 A) It is not the system_dummy process.
 B) The process is not a process image.
-C) It is a descendent process of the killing process or kill_any is set to 
+C) The process is not already exiting.
+D) It is a descendent process of the killing process or kill_any is set to 
    YES in the init file.
+E) For restart command only: The process is currently halted.
 
-It returns the status of the process just before we killed it.
+The commands return the status of the process just before we did the action to 
+it or if it is not possible to affect the other process an empty string is 
+returned. bear in mind that if the pid does not exist an error will be returned
+so you may wish to trap the command in case the other process dies just before
+the command is executed. If the pid is ommited with the halt command the
+process will halt itself (but it cannot restart itself after this so some other
+process will have to do it).
 
 eg: spawn child pid
     if [not pid]
 		printnl "Child sleeping"; sleep 10
     endif
     sleep 1
-    printnl "Child was: " [kill pid]
+    if [trap [set status [kill pid]]]
+        printnl "Error during kill."
+    endif
+    if status=""
+        printnl "Unable to kill process"
+    else
+        printnl "Child status was: " status
+    endif
 
 -------------------------------------------------------------------------------
 
@@ -1103,8 +1194,7 @@ eg: if [trap [set sock [connect "localhost" 4000]]]
 echo on/off
 
 This switches echoing on and off for the STDIN of the process so passwords 
-can be entered and not be seen. This facility only works if the STDIN is
-linked to a socket and not the terminal.
+can be entered and not be seen. 
 
 eg: print "Enter name> "; input name
     echo off

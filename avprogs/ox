@@ -33,6 +33,7 @@ while TRUE
 	else
 		printnl "~FTYou start..."
 	endif
+	sleep 1
 
 	# Mainloop
 	call display_board
@@ -55,7 +56,7 @@ endproc
 proc display_board
 var h i j el
 
-printnl
+print "~CL"
 
 # Go through positions
 for h 1 to 7 step 3

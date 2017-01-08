@@ -20,6 +20,13 @@ Background processes:
     to them will cause an "Unset stream" error though it can always write to
     the system log using printlog or any other stream.
 
+Device processes:
+    These processes use a character device (normally a tty driver accessing
+    a terminal) as their I/O source/destination. To run a terminal on these
+    you must have read/write permission on the device and since Avios does
+    not prepare the device you may need to use the unix stty command to set
+    it up properly beforehand (eg setting the baud rate etc).
+
 Image processes:
     If a process has a port number as the option then an image process is
     created upon boot. What this means is that the program code is loaded
