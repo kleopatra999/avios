@@ -1,0 +1,14 @@
+proc main
+var pos str len
+
+set str "     This is a test scrolling message."
+set pos 1
+set len [strlen str]
+while 1
+	print [midstr str pos len]
+	if pos>1; print [midstr str 1 [sub pos 1]]; endif
+	print [format "\r"]
+	if [inc pos]>len; set pos 1; endif
+	usleep 200000
+wend
+endproc

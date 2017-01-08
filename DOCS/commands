@@ -1,7 +1,5 @@
                           *** THE COMMANDS ***
 
-Here are a list of the commands that currently have been implemented.
-
 -------------------------------------------------------------------------------
 
 alias <from> <to>
@@ -419,6 +417,15 @@ eg: printnl [instr "hello" "el" 1]
 
 -------------------------------------------------------------------------------
 
+matchstr <string> <wildcard pattern>
+
+This returns 1 if the string matches the widlcard pattern else it returns 0.
+The pattern cannot use full regular expressions but is limited to '?' and '*'.
+
+eg: printnl [matchstr "hello world" "h?ll*"]
+
+-------------------------------------------------------------------------------
+
 midstr <string> <from> [<to>]
 
 This will print the part of the string between and including the 'from' and 'to'
@@ -692,7 +699,28 @@ naturally). An error is returned if this can't be done.
 
 -------------------------------------------------------------------------------
 
-dir all/files/dirs/links/cdevs/bdevs/usocks <directory>
+stat <filesytem entry>
+
+This gives the file type, size, permissions, last modified and last accessed 
+information for a filesystem entry. The last two are given as the number of 
+seconds since 1970.
+
+eg: printnl [gettime time [elements [stat "myfile" ] 4]]
+
+-------------------------------------------------------------------------------
+
+chmod <filename> <octal permissions>
+
+This changes the permissions of a file. The permissions given are in numeric
+octal form, eg: 664, 700 etc. The command does not support the "ug+rw" etc
+format supported by the unix chmod command.
+
+eg: chmod "myfile" 600
+    printnl [elements [stat "myfile"] 3]
+
+-------------------------------------------------------------------------------
+
+dir all/files/dirs/links/cdevs/bdevs/usocks <directory> [<wildcard patterns>]
 
 This command will return a list of the specified file types in the given
 directory. The types are the following:
@@ -704,11 +732,13 @@ cdevs - character devices
 bdevs - block devices
 usocks - unix sockets
 
-Please not that wild card or regular expression derived listings are not yet 
-supported (and may never be).
+The wildcard pattern allows you to selectively list entries using the '?'
+and '*' wildcard substitution operators. Please note that full regular
+expressions are not supported.
 
 eg: printnl [dir cdevs "/dev"]
     printnl [dir all "."]
+    printnl [dir files "." "a*" "???"]
 
 -------------------------------------------------------------------------------
 
@@ -967,8 +997,25 @@ eg: proc main
 
 -------------------------------------------------------------------------------
 
+sleep <seconds>
+usleep <microseconds>
+
+These will pause the program for the given time period. The accuracy of the
+usleep command however is up for debate for low values of microseconds. Also
+bear in mind that any tuning_delay set in the init file will also have an
+effect on the actual delay experienced as any delay can *never* be less than
+the tuning_delay even if it is set as such.
+
+eg: while 1
+       printnl [gettime secs]
+       sleep 1
+    wend
+
+-------------------------------------------------------------------------------
+
 gettime boottime/created/rawtime/date/usdate/rvdate/time/...
-        hours/mins/secs/wday/mday/month/year/dayname/monthname  [<rawtime>]
+        hours/mins/secs/usecs/wday/mday/month/year/dayname/monthname...
+        [<rawtime in seconds>]
 
 This commands returns various times in various formats which mean the
 following:
@@ -983,6 +1030,7 @@ time     : Time in hours:mins:secs format.
 hour     : Hour of the day (0 - 23).
 mins     : Minute of the hour.
 secs     : Seconds of the minute.
+usecs    : Microseconds in the second (same value for rawtime time and any user given fromtime)
 wday     : Numeric day of the week (1-7).
 mday     : Numeric day of the month. 
 month    : Numeric month of the year (1-12)

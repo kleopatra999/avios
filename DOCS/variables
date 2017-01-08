@@ -151,6 +151,14 @@ Systemwide ones:
 
    $version - Avios version number.
 
+   $build - Avios build (eg: STANDARD, LINUX etc)
+
+   $uname - Information about the version of Unix the system is running on.
+            It gives the same info as doing "uname -a" at the unix shell.
+
+   $unixuser - This array gives information on the user whos id the system was
+               started under.
+
 Process specific ones:
    $name - Name of the process.
 
@@ -171,8 +179,8 @@ Process specific ones:
             comments and empty lines). Each element of the array contains a 
             single "word" which is the prog_word[].word string from the C 
             structure in the source code. Appended to each element is the 
-            program line number (note: this is not the same as the file line 
-            number) which the word is on. See the virus example program to see 
+            program line number , the real/file line number and the filename
+            the word was loaded from. See the virus example program to see 
             how it can be used.
 
    $proc  - This is an array which stores the return values from procedures.

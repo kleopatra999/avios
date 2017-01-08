@@ -3,8 +3,7 @@
 
 This is just a short introduction to Avios as most of the documentation
 you will need is in the DOCS directory. If you're in a hurry and can't
-be bothered to read this yet (you lazy bastard :) read DOCS/comp_and_run for 
-compiling info.
+be bothered to read this yet read DOCS/comp_and_run for compiling info.
 
 The OS
 ------
@@ -95,9 +94,13 @@ have found some suspected bugs please email me about it (but *please* RTFM
 first and make sure you're not getting it wrong!!)
 
 
+NOTE: This is going to be the last upgrade release of Avios (ie there will
+      be no 1.4.0 or 2.0) as there seems to be too little interest in the
+      system. Any further releases will be restricted to patch releases.
+
 Neil Robertson
 
-August/September 1997
+October 1997
 
 Email: neil@ogham.demon.co.uk
 

@@ -1,10 +1,9 @@
 PARAMETERS:
-#the_ode
 code_path        avprogs
 #root_path        .
-allow_ur_path    YES
+#allow_ur_path    NO
 kill_any         YES
-#child_die        YES
+child_die        YES
 #ignore_sigterm   YES
 wait_on_dint     YES
 pause_on_sigtstp YES
@@ -27,5 +26,6 @@ BACK talkserv   talkserv
 4030 runprog    runprog 
 4040 runprog2   runprog2 
 8080 webserv    webserv
-#BACK virus      virus    # This will spawn itself via runprog
-#BACK sendprog   sendprog # This will send killer to runprog
+#BACK virus      virus
+#BACK virus2     virus2
+#BACK sendprog   sendprog

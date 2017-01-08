@@ -1,18 +1,18 @@
 /****************************************************************************
-                            AVIOS version 1.2.0
+                            AVIOS version 1.3.0
          A VIrtual Operating System, Copyright (C) Neil Robertson 1997
 
-                     Version date: 21st September 1997
+                     Version date: 15th October 1997
 
  Created out of blood and sweat using incantations of the C after dusk and 
- in dark dungeons found in London, England from January to September 1997. 
+ in dark dungeons found in London, England from January to October 1997. 
 
  Please read the README & COPYRIGHT files.
 
  Neil Robertson.
 
  Email    : neil@ogham.demon.co.uk
- Web pages: http://www.ogham.demon.co.uk/avios.html and neil.html
+ Web pages: http://www.ogham.demon.co.uk/avios.html and /neil.html
 
  ****************************************************************************/
 
@@ -25,6 +25,7 @@
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/stat.h>
+#include <sys/utsname.h>
 #ifdef LINUX
 #include <sys/ioctl.h>
 #endif
@@ -35,11 +36,12 @@
 #include <signal.h>
 #include <unistd.h>
 #include <dirent.h>
+#include <pwd.h>
 #include <errno.h>
 
-#include "avios120.h"
+#include "avios130.h"
 
-#define VERSION "1.2.0"
+#define VERSION "1.3.0"
 
 struct streams *get_stream();
 
@@ -50,33 +52,36 @@ main(argc,argv)
 int argc;
 char *argv[];
 {
-char defops[20];
+qbm=0; /* quiet bootup mode to off */
 
 /* Go through command line args */
 parse_command_line(argc,argv);
 
-/* Set up build parameter string. Only for reference. */
-defops[0]='\0';
+/* Set up build parameter string. */
+build[0]='\0';
 #ifdef LINUX
-strcat(defops,"LINUX");
+strcat(build,"LINUX");
 #endif
 #ifdef FREEBSD
-if (defops[0]) strcat(defops,", ");
-strcat(defops,"FREEBSD");
+if (build[0]) strcat(build,", ");
+strcat(build,"FREEBSD");
 #endif
 #ifdef NO_USLEEP
-if (defops[0]) strcat(defops,", ");
-strcat(defops,"NO_USLEEP");
+if (build[0]) strcat(build,", ");
+strcat(build,"NO_USLEEP");
 #endif
 #ifdef NO_CRYPT
-if (defops[0]) strcat(defops,", ");
-strcat(defops,"NO_CRYPT");
+if (build[0]) strcat(build,", ");
+strcat(build,"NO_CRYPT");
 #endif
-if (!defops[0]) strcpy(defops,"STANDARD");
+if (!build[0]) strcpy(build,"STANDARD");
 
 /* Startup */
-printf("\n*** AVIOS version %s ***\n\n",VERSION);
-printf("Build: %s\n\nSystem booting...\n\n",defops);
+if (!qbm) {
+	printf("\n*** AVIOS version %s ***\n\n",VERSION);
+	printf("Build: %s\n\nSystem booting...\n\n",build);
+	}
+
 if (be_daemon && syslog_file==NULL) {
 	fprintf(stderr,"ERROR: A syslog file must be specified if the system is to run as a daemon.\n");
 	exit(1);
@@ -120,10 +125,10 @@ mainloop();
 mainloop()
 {
 struct process *pcs_next;
-time_t systime;
 int ret;
 
-systime=0;
+avtime.tv_sec=0;
+avtime.tv_usec=0;
 boottime=time(0);
 
 /* The main loop itself */
@@ -140,8 +145,8 @@ while(1) {
 	if (tuning_delay) usleep(tuning_delay);
 #endif
 
-	/* Set system time */
-	if (time(0)>systime) systime=time(0); 
+	/* Get time */
+	gettimeofday(&avtime,NULL);
 
 	/* Check for any connects to TCP ports */
 	check_for_connects();
@@ -158,15 +163,18 @@ while(1) {
 		load_process_state(current_pcs);
 
 		/* See if process timer (if set) has reached its goal. */
-		if (current_pcs->timer_exp &&
-		    current_pcs->timer_exp<=(int)systime &&
+		if (current_pcs->timer_sec &&
 		    current_pcs->t_int_proc!=NULL &&
 		    current_pcs->int_enabled &&
-		    !current_pcs->interrupted) {
+		    !current_pcs->interrupted &&
+		    (avtime.tv_sec > current_pcs->timer_sec ||
+		     (avtime.tv_sec==current_pcs->timer_sec &&
+		      avtime.tv_usec>=current_pcs->timer_usec))) {
 			set_variable("$int_mesg",NULL,"0 TIMER",1);
 			current_pcs->old_status=current_pcs->status;
 			current_pcs->status=TIMER_INT;
-			current_pcs->timer_exp=0;
+			current_pcs->timer_sec=0;
+			current_pcs->timer_usec=0;
 			}
 		inst_cnt=0;
 
@@ -174,7 +182,7 @@ while(1) {
 		switch(current_pcs->status) {
 			case IMAGE      :
 			case CHILD_DWAIT:
-			case SPEC_DWAIT  : continue;
+			case SPEC_DWAIT : continue;
 
 			case OUTPUT_WAIT:
 			if (current_outstream==NULL || 
@@ -198,9 +206,12 @@ while(1) {
 			break;
 
 			case SLEEPING:
-			if ((int)systime>=current_pcs->sleep_to) {
+			if (avtime.tv_sec > current_pcs->sleep_sec ||
+			    (avtime.tv_sec==current_pcs->sleep_sec &&
+			     avtime.tv_usec>=current_pcs->sleep_usec)) {
 				current_pcs->status=RUNNING;  
-				current_pcs->sleep_to=0;  
+				current_pcs->sleep_sec=0;  
+				current_pcs->sleep_usec=0;  
 				current_pcs->pc=prog_word[current_pcs->pc].end_pos+1;
 				break;
 				}
@@ -237,7 +248,7 @@ parse_command_line(argc,argv)
 int argc;
 char *argv[];
 {
-char *usage="Usage: %s [-i <init file>] [-s <syslog file>] [-d] [-v] [-h]\n";
+char *usage="Usage: %s [-i <init file>] [-s <syslog file>] [-q] [-d] [-v] [-h]\n";
 int i;
 
 /* These 3 vars are globals */
@@ -258,16 +269,18 @@ for(i=1;i<argc;++i) {
 		continue;
 		}
 	if (!strcmp(argv[i],"-d")) {  be_daemon=1;  continue;  }
+	if (!strcmp(argv[i],"-q")) {  qbm=1;  continue;  }
 	if (!strcmp(argv[i],"-v")) {  printf("%s\n",VERSION);  exit(0);  }
 	if (!strcmp(argv[i],"-h")) {
 		printf("\nAVIOS version %s\n",VERSION);
 		printf("Copyright (C) Neil Robertson 1997\n\n"); 
 		printf(usage,argv[0]);
-		printf("\n-i: Set the initalisation file (default is 'init').\n");
-		printf("-s: Set the system log file (default is standard output).\n");
-		printf("-d: Run as a daemon.\n");
-		printf("-v: Print version number.\n");
-		printf("-h: Print this help message.\n\n");
+		puts("\n-i: Set the initalisation file (default is 'init').");
+		puts("-s: Set the system log file (default is standard output).");
+		puts("-d: Run as a daemon.");
+		puts("-q: Quiet bootup mode (no non system log messages).");
+		puts("-v: Print version number.");
+		puts("-h: Print this help message.\n");
 		exit(0);
 		}
 	fprintf(stderr,usage,argv[0]);
@@ -324,10 +337,13 @@ last_stream=NULL;
      in the code using that variable. ***/
 create_system_variables()
 {
-int e,ret,flags;
+struct utsname un;
+struct passwd *pwd;
+int i,ret,flags;
 
 if ((ret=create_process("system_dummy",1))!=OK) goto ERROR;
 set_string(&first_pcs->site,"<null>");
+
 
 /* Create process name array and process count */
 flags=READONLY | ARRAY;
@@ -336,20 +352,48 @@ if ((ret=set_variable("$pcs:\"1\"",NULL,"system_dummy",1))!=OK) goto ERROR;
 if ((ret=create_variable("$pcs_count",NULL,NULL,READONLY,1))!=OK) goto ERROR;
 if ((ret=set_variable("$pcs_count",NULL,"1",1))!=OK) goto ERROR;
 
+/* Avios build */
+if ((ret=create_variable("$build",NULL,NULL,READONLY,1))!=OK) goto ERROR;
+if ((ret=set_variable("$build",NULL,build,1))!=OK) goto ERROR;
+
 /* Avios version */
 if ((ret=create_variable("$version",NULL,NULL,READONLY,1))!=OK) goto ERROR;
 if ((ret=set_variable("$version",NULL,VERSION,1))!=OK) goto ERROR;
 
-/* Max messages in queues - set after init file parsed */
-if ((ret=create_variable("$max_mesgs",NULL,NULL,READONLY,1))!=OK) goto ERROR;
+
+/* Version of Unix we're on - same as "uname -a" unix command output */
+uname(&un);
+sprintf(text,"%s %s %s %s %s",un.sysname,un.nodename,un.release,un.version,un.machine);
+if ((ret=create_variable("$uname",NULL,NULL,READONLY,1))!=OK) goto ERROR;
+if ((ret=set_variable("$uname",NULL,text,1))!=OK) goto ERROR;
+
+
+/* Info on the user who's running the system. If for some reason there is no
+   info then just leave variable blank. Don't include users encrypted password
+   here for obvious security reasons. */
+if ((ret=create_variable("$unixuser",NULL,NULL,flags,1))!=OK) goto ERROR;
+if ((pwd=getpwuid(getuid()))!=NULL) {
+	set_variable("$unixuser:\"login\"",NULL,pwd->pw_name,1);
+	sprintf(text,"%d",pwd->pw_uid);
+	set_variable("$unixuser:\"uid\"",NULL,text,1);
+	sprintf(text,"%d",pwd->pw_gid);
+	set_variable("$unixuser:\"gid\"",NULL,text,1);
+	set_variable("$unixuser:\"gecos\"",NULL,pwd->pw_gecos,1);
+	set_variable("$unixuser:\"home\"",NULL,pwd->pw_dir,1);
+	set_variable("$unixuser:\"shell\"",NULL,pwd->pw_shell,1);
+	}
+
 
 /* Create error array. Ignore "OK" 'error' as we can't have an array position
    zero anyway. */
 if ((ret=create_variable("$error",NULL,NULL,flags,1))!=OK) goto ERROR;
-for(e=1;e<NUM_ERRS;++e) {
-	sprintf(text,"$error:\"%d\"",e);
-	if ((ret=set_variable(text,NULL,error_mesg[e],1))!=OK) goto ERROR;
+for(i=1;i<NUM_ERRS;++i) {
+	sprintf(text,"$error:\"%d\"",i);
+	if ((ret=set_variable(text,NULL,error_mesg[i],1))!=OK) goto ERROR;
 	}
+
+/* Max messages in queues - set after init file parsed */
+if ((ret=create_variable("$max_mesgs",NULL,NULL,READONLY,1))!=OK) goto ERROR;
 
 save_process_state(first_pcs,1);
 return;
@@ -371,7 +415,7 @@ char line[ARR_SIZE+1],word[ARR_SIZE+1];
 if (!(fp=fopen(init_file,"r"))) {
 	perror("ERROR: Unable to open the init file");  exit(-1);
 	}
-printf("Parsing init file...\n");
+if (!qbm) printf("Parsing init file...\n");
 line_num=0;
 done_params=0;
 
@@ -520,15 +564,20 @@ the_ode()
 {
 char *data="\
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\
-Uif!esvjetupof!tuboet!qspve!jo!b!dmfbsjoh-!Uif!djsdmf!pg!usfft!esbxo!c\
-bdl!gspn!jut!qsftfodf/!Cfzpoe!uifjs!cpvoebsz!uif!usbwfmmfs!tufqt-!Boe!\
-gffmt!uif!ujohmf!pg!mptu!nbhjd!bu!sftu/!Uif!ijttjoh!gspn!uif!gpsftu!bs\
-pvoe!uvsot!up!tobsmt-!Gps!uif!wbmlzsjf!dboopu!foufs!xjuijo/!Uifz!bsf!i\
-fme!cbdl!cz!tqfmmt!gbs!pmefs!uibo!uifz-!Boe!jg!uifz!tipvme!foufs-!ivou\
-fs!cfdpnft!uif!qsfz/!Uif!qbdl!qpoz!qbxt!uif!hspvoe!xjui!vofbtf-!Bt!b!i\
-boe!jt!qmbdfe!vqpo!b!svof!po!uif!tupof/!Tjmfodf!efdfoet!vqpo!fwfszuijo\
-h!boe!bmm-!Gps!uif!mpoh!jemf!nbhjd!sfljoemft!jut!gmbnf/!Nbo!boe!cfbtu!\
-bmjlf!bsf!dbquvsfe!jo!uisbmm//////////!!!!!!!!!!!!!!!!";
+Xijmf!bmm!bspvoe!uif!tupof!uifz!xbudi!jo!tuvoofe!tjmfodf-!nbhjd!tqbslt\
+!gspn!uif!uif!psjhjobm!gfsnbnfou-!usbqqfe!cfuxffo!xpsmet!opx!cvso!joup\
+!dpmpvsfe!csjmmjbodf-!gspn!cfgpsf!uif!ebxo!pg!nbo!uijt!qpxfs!jt!tfou/!\
+!B!tiveefs!spdlt!uif!dmfbsjoh!boe!uif!esvjetupof!tqmjut!btvoefs-!b!cmb\
+tu!pg!ipu!xjoe!boe!uifo!b!tubscfbn!lojgft!uif!tlz-!jmmvnjobujoh!uif!Bw\
+jpt!gpsftu!jo!b!hiptumz!sbjocpx!ivf-!tpnfuijoh!gpsnt!ijhi!bcpwf-!hmpxj\
+oh!sfe!mjlf!b!hjbou!gjsfgmz/!!Uif!pckfdu!efdfoet!boe!uif!gpsftu!dsfbuv\
+sft!sfusfbu-!uif!usbwfmmfs!boe!qbdlqpoz!uipvhi!tuboe!uifjs!hspvoe-!xbj\
+ujoh!gps!uif!sfwfmbujpo!uibu!xjmm!tpmwf!uif!rvftu-!cvu!xifo!uif!mjhiu!\
+gbeft!uifz!tff!b!sfe!fzfe!ebslipvoe/!!#J!IBWF!CFFO!USJDLFE#!tipvut!uif\
+!usbwfmmfs!#UIFSF!JT!OP!RVFTU#-!gps!uipvhi!b!vtfgvm!tmbwf!gps!ijt!nbtu\
+fs!vtfgvmoftt!ibt!bo!foe-!boe!ijt!nbtufs!ibe!ijt!pxo!nbtufs!xip!sfrvjs\
+ft!b!tbdsjgjdf-!tp!up!uif!Hsfbu!Efnpo(t!nbx!uijt!ebslipvoe!nvtu!ijt!tp\
+vm!opx!tfoe////////!!UIF!FOE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!";
 
 char *sptr,*cptr,*ptr;
 int spaces,i;
@@ -658,10 +707,17 @@ while(!feof(fp)) {
 	   into its space. If process will be sitting on a port we create an
 	   image which will be used to spawn copies on every connect, else if
 	   process is running on the terminal we just run it straight away. */
-	printf("\n=> Creating ");
-	if (port) {  printf("image");  images++;  }
-	else if (back) printf("background"); else printf("terminal");
- 	printf(" process %d (%s)...\n",new_pid,argv[0]);
+	if (!qbm) printf("\n=> Creating ");
+	if (port) {  
+		if (!qbm) printf("image");  
+		images++;  
+		}
+	else {
+		if (!qbm) {
+			if (back) printf("background"); else printf("terminal");
+			}
+		}
+ 	if (!qbm) printf(" process %d (%s)...\n",new_pid,argv[0]);
 
 	if (create_process(argv[0],new_pid)!=OK) {
 		fprintf(stderr,"INIT ERROR: Memory allocation error on line %d.\n",line_num);
@@ -680,7 +736,7 @@ while(!feof(fp)) {
 	set_string(&current_pcs->filename,filename);
 
 	/* Load the actual program */
-	printf("   Loading program file \"%s\"...\n",filename);
+	if (!qbm) printf("   Loading program file \"%s\"...\n",filename);
 	real_line=-1;
 	if ((ret=process_setup(filename,argc,argv,0))!=OK) {
 		if (real_line!=-1) {
@@ -690,6 +746,7 @@ while(!feof(fp)) {
 		else fprintf(stderr,"ERROR: %s for file \"%s\" (Init line %d).\n",error_mesg[ret],filename,line_num);
 		exit(ret);
 		}
+
 	if (back) {
 		/* Background processes not attached to terminal or socket */
 		get_stream("STDIN")->external=-1;
@@ -708,7 +765,7 @@ if (process_count==1) { /* 1 cos always have system dummy process */
 	fprintf(stderr,"INIT ERROR: PROCESSES section is empty.\n");
 	exit(-1);
 	}
-printf("\nAll processes loaded: %d real, %d images.\n\n",process_count-images-1,images);
+if (!qbm) printf("\nAll processes loaded: %d real, %d images.\n\n",process_count-images-1,images);
 }
 
 
@@ -723,7 +780,7 @@ void sig_handler(sig)
 int sig;
 {
 struct process *pcs;
-char line[100],*file;
+char line[100],fname[13],pcsname[11];
 int pcnt,icnt,ppid;
 
 switch(sig) {
@@ -778,16 +835,21 @@ for(pcs=first_pcs->next;pcs!=NULL;pcs=pcs->next) {
 
 	if (pcs->parent!=NULL) ppid=pcs->parent->pid; else ppid=0;
 
+	/* If process or filenames are too long to fit nicely onscreen then 
+	   put dots at the end of them */
+	strncpy(pcsname,pcs->name,10);
+	pcsname[10]='\0';
 	if (strlen(pcs->name)>10) {
-		pcs->name[8]='.';  pcs->name[9]='.';  pcs->name[10]='\0';
+		pcsname[8]='.';  pcsname[9]='.';
 		}
-	file=pcs->prog_word[pcs->pc].filename;
 
-	/* If filename too long to fit nicely on screen put dots at the end */
-	if (strlen(file)>12) {
-		file[10]='.';  file[11]='.';  file[12]='\0';
+	strncpy(fname,pcs->prog_word[pcs->pc].filename,12);
+	fname[12]='\0';
+	if (strlen(pcs->prog_word[pcs->pc].filename)>12) {
+		fname[10]='.';  fname[11]='.';
 		}
-	sprintf(text,"%s %-10s %3d %-12s %-12s %3d %s",line,pcs->name,ppid,status_name[pcs->status],pcs->prog_word[pcs->pc].filename,pcs->prog_word[pcs->pc].real_line,pcs->prog_word[pcs->pc].word);
+
+	sprintf(text,"%s %-10s %3d %-12s %-12s %3d %s",line,pcsname,ppid,status_name[pcs->status],fname,pcs->prog_word[pcs->pc].real_line,pcs->prog_word[pcs->pc].word);
 	write_syslog(text);
 
 	if (pcs->status==IMAGE) ++icnt;
@@ -880,7 +942,7 @@ int line_num;
 struct sockaddr_in bind_addr;
 int size,on;
 
-printf("   Creating socket on port %d...\n",new->port);
+if (!qbm) printf("   Creating socket on port %d...\n",new->port);
 
 /* Create socket */
 if  ((new->listen_sock=socket(AF_INET,SOCK_STREAM,0))==-1) {
@@ -1071,14 +1133,15 @@ pcs->over=0;
 pcs->local_port=0;
 pcs->remote_port=0;
 pcs->eof=0;
-pcs->sleep_to=0;
+pcs->sleep_sec=0;
+pcs->sleep_usec=0;
 pcs->exit_code=OK;
 pcs->parent=NULL;
 pcs->input_buff=NULL;
 pcs->mesg_q=NULL;
 pcs->mesg_cnt=0;
-pcs->sleep_to=0;
-pcs->timer_exp=0;
+pcs->timer_sec=0;
+pcs->timer_usec=0;
 pcs->death_pid=0;
 pcs->death_mesg=NULL;
 pcs->wait_pid=0;
@@ -1262,7 +1325,7 @@ switch(type) {
 	}
 
 /* Do the simple bit copying. Some of these should not need to be copied since
-   the should not be set if the process is spawning (eg sleep_to, wait_var) but
+   the should not be set if the process is spawning (eg sleep_sec, wait_var) but
    just in case I alter the code in the future I won't have to worry ... */
 set_string(&new->filename,par->filename);
 new->pid=new_pid;
@@ -1274,10 +1337,12 @@ new->eof=par->eof;
 new->pc=par->prog_word[par->pc].end_pos+1;
 new->int_enabled=par->int_enabled;
 new->interrupted=par->interrupted;
-new->sleep_to=par->sleep_to;
+new->sleep_sec=par->sleep_sec;
+new->sleep_usec=par->sleep_usec;
 new->wait_pid=par->wait_pid;
 new->mesg_cnt=par->mesg_cnt;
-new->timer_exp=par->timer_exp;
+new->timer_sec=par->timer_sec;
+new->timer_usec=par->timer_usec;
 new->input_vnum=par->input_vnum;
 new->colour=par->colour;
 
@@ -2538,6 +2603,47 @@ return 1;
 
 
 
+/*** Match a string with a wildcard pattern. Returns 1 or 0 ***/
+wildmatch(str,pat)
+char *str,*pat;
+{
+char *pat2,*str2,*pstart;
+int ok;
+
+if (!*pat) {
+	if (!*str) return 1; else return 0;
+	}
+pstart=pat;
+
+while(*str && *pat) {
+	switch(*pat) {
+		case '?': ++pat; break;
+
+		case '*':
+		/* Compare section from * in pat (up to next * or end) with 
+		   rest of str */
+		ok=1;
+		for(pat2=pat+1,str2=str+1;*pat2!='*';++pat2,++str2) {
+			if (*pat2=='?') continue;
+			if (*pat2!=*str2) {  ok=0;  break;  }
+			if (!*str2 || !*pat2) break;
+			}
+		if (ok) {  pat=pat2;  str=str2-1;  }
+		break;
+		
+		default:
+		if (*str!=*pat) return 0; 
+		++pat;
+		}
+	++str; 
+	}
+if (*str) return 0;
+if (*pat && (*pat!='*' || pat!=pstart+(strlen(pstart)-1))) return 0;
+return 1;
+}
+
+
+
 /*** Get the number of the command ***/
 get_command_number(word)
 char *word;
@@ -2818,7 +2924,7 @@ while(1) {
 		incst[ipos+1].filename[ip]='\0';
 
 		++ipos;
-		if (!com_num) {
+		if (!com_num && !qbm) {
 			printf("   ");
 			for(i=0;i<ipos;++i) putchar('>');
 			printf(" Loading include file \"%s\"...\n",incst[ipos].filename);
@@ -3130,7 +3236,7 @@ if ((ret=create_variable("$prog",NULL,NULL,flags,1))!=OK) return ret;
 w=0;
 while(prog_word[w].prog_line) {
 	sprintf(pvar,"$prog:\"%d\"",w+1);
-	sprintf(text,"%s %d",prog_word[w].word,prog_word[w].prog_line);
+	sprintf(text,"%s %d %d %s",prog_word[w].word,prog_word[w].prog_line,prog_word[w].real_line,prog_word[w].filename);
 	if ((ret=set_variable(pvar,NULL,text,1))!=OK) return ret;
 	++w;
 	}
@@ -3640,7 +3746,7 @@ while(value && 1) {
 
 	/* Find end of element */
 	s2=s;
-	while(*s2>33) ++s2;
+	while(*s2>32) ++s2;
 	c=*s2;  *s2='\0';
 
 	/* Find current array struct */
@@ -5822,10 +5928,11 @@ return OK;
 
 
 
-/*** Function for "exit" and "sleep" commands ***/
+/*** Function for "exit", "sleep" and "usleep" commands ***/
 com_exit_sleep(com_num,pc) 
 int com_num,pc;
 {
+struct timeval tv;
 int ret,val;
 
 if (prog_word[pc].end_pos-pc<1) return ERR_SYNTAX;
@@ -5835,17 +5942,29 @@ if (prog_word[pc].end_pos-pc<1) return ERR_SYNTAX;
 if ((ret=push_rstack_result(&pc,STRING_ILLEGAL))!=OK) return ret;
 if ((val=atoi(rstack_ptr->value))<0) return ERR_INVALID_ARGUMENT;
 
-if (com_num==EXIT) {
+switch(com_num) {
+	case EXIT:
 	/* Negative value shows process_exit() func that was process exit code
 	   not a system one, also subtract 1 so can also tell with a zero */
 	current_pcs->exit_code=-val-1; 
 	current_pcs->status=EXITING;
 	return OK;
+
+	case SLEEP:
+	gettimeofday(&tv,NULL);
+	current_pcs->status=SLEEPING;
+	current_pcs->sleep_sec=tv.tv_sec+val;
+	current_pcs->sleep_usec=tv.tv_usec;
+	return OK;
+
+	case USLEEP:
+	gettimeofday(&tv,NULL);
+	current_pcs->status=SLEEPING;
+	current_pcs->sleep_sec=tv.tv_sec+val/1000000;
+	current_pcs->sleep_usec=tv.tv_usec+val%1000000;
+	return OK;
 	}
-/* SLEEP */
-current_pcs->status=SLEEPING;
-current_pcs->sleep_to=(int)time(0)+val;
-return OK;
+return ERR_INTERNAL;
 }
 
 
@@ -5889,8 +6008,10 @@ return OK;
 com_strings1(com_num,pc) 
 int com_num,pc;
 {
+struct stat *fs;
 int ret,len,val,legal,dup;
 char *valptr,*result,*s,*s2,*e,*e2,c,c2;
+char pathname[100],type[10];
 
 if (prog_word[pc].end_pos - pc<1) return ERR_SYNTAX;
 
@@ -5898,8 +6019,10 @@ if (prog_word[pc].end_pos - pc<1) return ERR_SYNTAX;
 if (com_num==ISNUM) legal=ALL_LEGAL; else legal=INT_ILLEGAL;
 if ((ret=push_rstack_result(&pc,legal))!=OK) return ret;
 valptr=rstack_ptr->value;
-if (com_num!=ISNUM && com_num!=STRLEN && isnull(valptr)) 
-	return push_rstack(NULL);
+if (isnull(valptr)) {
+	if (com_num==STAT) return ERR_INVALID_ARGUMENT;
+	if (com_num!=ISNUM && com_num!=STRLEN) return push_rstack(NULL);
+	}
 
 switch(com_num) {
 	case ISNUM:
@@ -5997,14 +6120,40 @@ switch(com_num) {
 	push_rstack(valptr);  
 	*s2=c;
 	return OK;
+
+	case STAT:
+	if ((fs=(struct stat *)malloc(sizeof(struct stat)))==NULL)
+		return ERR_MALLOC;
+
+	strcpy(pathname,create_path(valptr));
+	if (lstat(pathname,fs)==-1) {
+		sprintf(text,"Process %d (%s) got lstat() error with file \"%s\": %s",current_pcs->pid,current_pcs->name,pathname,sys_errlist[errno]);
+		write_syslog(text);
+		free(fs);
+		return ERR_CANT_STAT_FILE;
+		}
+
+	switch(fs->st_mode & S_IFMT) {
+		case S_IFDIR: strcpy(type,"dir"); break;
+		case S_IFREG: strcpy(type,"file"); break;
+		case S_IFLNK: strcpy(type,"link"); break;
+		case S_IFCHR: strcpy(type,"cdev"); break;
+		case S_IFBLK: strcpy(type,"bdev"); break;
+		case S_IFSOCK: strcpy(type,"socket"); break;
+		default: strcpy(type,"unknown");
+		}
+	sprintf(text,"%s %d %o %d %d",type,(int)fs->st_size,fs->st_mode & 0x1FF,(int)fs->st_mtime,(int)fs->st_atime);
+	free(fs);
+	return push_rstack(text);
 	}
 return ERR_INTERNAL;
 }
 
 
 
-/*** Function for the mulstr, crypt, match, rename & copy commands. They all 
-     take exactly 2 arguments (all strings except for mulstr last arg) ***/
+/*** Function for the mulstr, crypt, match, unmatch, matchstr, rename, copy 
+     & chmod commands. They all take exactly 2 arguments (all strings except 
+     for mulstr & chmod last arg) ***/
 com_strings2(com_num,pc)
 int com_num,pc;
 {
@@ -6014,6 +6163,7 @@ char *valptr[2],*result,pathname1[200],pathname2[200];
 char c,c2,*s,*s2,*e,*e2;
 char *avios_crypt();
 FILE *fpold,*fpnew;
+mode_t filemode;
 
 if (prog_word[pc].end_pos - pc <2) return ERR_SYNTAX;
 
@@ -6027,8 +6177,8 @@ for(pc2=pc+1;pc2<=prog_word[pc].end_pos;) {
 		break;
 
 		case 1:
-		if (com_num!=MULSTR) legal=INT_ILLEGAL; 
-		else legal=STRING_ILLEGAL;
+		if (com_num==MULSTR || com_num==CHMOD) legal=STRING_ILLEGAL; 
+			else legal=INT_ILLEGAL;
 		if ((ret=push_rstack_result(&pc2,legal))!=OK) 
 			return ret;
 		break;
@@ -6041,23 +6191,35 @@ for(pc2=pc+1;pc2<=prog_word[pc].end_pos;) {
 if (cnt<2) return ERR_SYNTAX;
 
 if (isnull(valptr[0])) {
-	if (com_num==RENAME) return ERR_INVALID_ARGUMENT;
+	switch(com_num) {
+		case RENAME:
+		case COPY  :
+		case CHMOD :
+		return ERR_INVALID_ARGUMENT;
+
+		case MATCHSTR:
+		if (isnull(valptr[1])) return push_rstack("1");
+		return push_rstack("0");
+		}
 	return push_rstack(NULL);
 	}
 if (isnull(valptr[1])) {
-	if (com_num==MATCH) return push_rstack(NULL);
-	if (com_num==UNMATCH) return push_rstack(valptr[0]);
+	switch(com_num) {
+		case MATCH   : return push_rstack(NULL);
+		case UNMATCH : return push_rstack(valptr[0]);
+		case MATCHSTR: return push_rstack("0");
+		}	
 	return ERR_INVALID_ARGUMENT;
 	}
 if (com_num==MULSTR && (num1=atoi(valptr[1]))<1) return ERR_INVALID_ARGUMENT;
 
-if (com_num==RENAME || com_num==COPY) {
+if (com_num==RENAME || com_num==COPY || com_num==CHMOD) {
 	/* Make sure another process is not currently accessing either file.
 	   If this process is accessing it destroy the stream. */
 	for(st=first_stream;st!=NULL;st=st->next) {
 		if (st->filename!=NULL && 
 		    (!strcmp(st->filename,valptr[0]) || 
-		     !strcmp(st->filename,valptr[1]))) {
+		     (com_num!=CHMOD && !strcmp(st->filename,valptr[1])))) {
 			if (st->owner!=current_pcs) return ERR_FILE_IN_USE;
 			destroy_stream(st); 
 			}
@@ -6122,6 +6284,10 @@ switch(com_num) {
 		}
 	break;
 
+	case MATCHSTR:
+	sprintf(text,"%d",wildmatch(valptr[0],valptr[1]));
+	return push_rstack(text);
+
 	case RENAME:
 	if (rename(pathname1,pathname2)) {
 		sprintf(text,"Process %d (%s) got rename() error with file \"%s\" to \"%s\": %s",current_pcs->pid,current_pcs->name,pathname1,pathname2,sys_errlist[errno]);
@@ -6150,6 +6316,25 @@ switch(com_num) {
 		}
 	fclose(fpold);
 	fclose(fpnew);
+	return OK;
+
+	case CHMOD:
+	/* This only parses absolute permissions. Doing the ug+rw etc stuff
+	   is a pain and to be honest not worth the bother as this command
+	   will hardly ever be used anyway. */
+	if (strlen(valptr[1])!=3 || 
+	    valptr[1][0]>'7' || 
+	    valptr[1][1]>'7' || 
+	    valptr[1][2]>'7') return ERR_INVALID_ARGUMENT;
+
+	filemode=(valptr[1][0]-48) << 6;
+	filemode=filemode | (valptr[1][1]-48 << 3);
+	filemode=filemode | (valptr[1][2]-48);
+	if (chmod(pathname1,filemode)==-1) {
+		sprintf(text,"Process %d (%s) got chmod() error with file \"%s\": %s",current_pcs->pid,current_pcs->name,pathname1,sys_errlist[errno]);
+		write_syslog(text);
+		return ERR_CANT_CHANGE_FILE_PERM;
+		}
 	return OK;
 	}
 push_rstack(result);
@@ -6592,7 +6777,7 @@ while(1) {
 	cnt++;
 
 	/* Find end of element */
-	while(*s>33) ++s;
+	while(*s>32) ++s;
 	}
 sprintf(text,"%d",cnt);
 return push_rstack(text);
@@ -6827,26 +7012,34 @@ return seek_stream(com_num,whence,atoi(rstack_ptr->value));
 
 
 
-/*** Return a listing of the given directory ***/
+/*** Return a listing of the given directory. Optional wildcard search
+     values are permitted (up to 20 of them) ***/
 com_dir(com_num,pc)
 int com_num,pc;
 {
 DIR *dir;
 struct dirent *ds;
 struct stat fs;
-char *sub_com[]={ "all","files","dirs","links","cdevs","bdevs","usocks" };
+int com,ret,type,v,v2,pc2;
 char *list,pathname[ARR_SIZE],filename[ARR_SIZE];
-int com,ret,type;
+
+char *sub_com[]={ "all","files","dirs","links","cdevs","bdevs","usocks" };
+
+char *valptr[20]={
+NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,
+NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL
+};
+
 
 if (prog_word[pc].end_pos - pc<2) return ERR_SYNTAX;
-++pc;
+pc2=pc+1;
 for(com=0;com<7;++com) 
-	if (!strcmp(prog_word[pc].word,sub_com[com])) goto FOUND;
+	if (!strcmp(prog_word[pc2].word,sub_com[com])) goto FOUND;
 return ERR_SYNTAX;
 
 FOUND:
-++pc;
-if ((ret=push_rstack_result(&pc,INT_ILLEGAL))!=OK) return ret;
+++pc2;
+if ((ret=push_rstack_result(&pc2,INT_ILLEGAL))!=OK) return ret;
 if (isnull(rstack_ptr->value)) return ERR_INVALID_ARGUMENT;
 
 strcpy(pathname,create_path(rstack_ptr->value));
@@ -6854,6 +7047,15 @@ if ((dir=opendir(pathname))==NULL) {
 	sprintf(text,"Process %d (%s) got opendir() error with dir. \"%s\": %s",current_pcs->pid,current_pcs->name,pathname,sys_errlist[errno]);
 	write_syslog(text);
 	return ERR_CANT_OPEN_DIR;
+	}
+
+/* Get any optional wildcard arguments */
+v=0;
+while(pc2<=prog_word[pc].end_pos) {
+	if (v==20) return ERR_TOO_MANY_ARGS;
+	if ((ret=push_rstack_result(&pc2,INT_ILLEGAL))!=OK) return ret;
+	valptr[v]=rstack_ptr->value;
+	++v;
 	}
 
 list=NULL;
@@ -6868,6 +7070,12 @@ while((ds=readdir(dir))!=NULL) {
 		case 4: if (type==S_IFCHR) break; else continue;
 		case 5: if (type==S_IFBLK) break; else continue;
 		case 6: if (type==S_IFSOCK) break; else continue;
+		}
+	if (v) {
+		for(v2=0;v2<v;++v2) {
+			if (wildmatch(ds->d_name,valptr[v2])) break;
+			}
+		if (v2==v) continue;
 		}
 	append_string(&list,ds->d_name);
 	append_string(&list," ");
@@ -7484,20 +7692,29 @@ return push_rstack("1");
 
 
 
-/*** Set the timer interrupt ****/
+/*** Set the timer interrupt time ****/
 com_timer(com_num,pc)
 int com_num,pc;
 {
-int ret,cnt;
+struct timeval tv;
+int ret,val;
 
 if (prog_word[pc].end_pos - pc < 1) return ERR_SYNTAX;
 
 ++pc;
 if ((ret=push_rstack_result(&pc,STRING_ILLEGAL))!=OK) return ret;
-if ((cnt=atoi(rstack_ptr->value))<0) return ERR_INVALID_ARGUMENT;
-current_pcs->timer_exp=(int)time(0)+cnt;
-sprintf(text,"%d",current_pcs->timer_exp);
-return push_rstack(text);
+if ((val=atoi(rstack_ptr->value))<0) return ERR_INVALID_ARGUMENT;
+
+gettimeofday(&tv,NULL);
+if (com_num==TIMER) {
+	current_pcs->timer_sec=tv.tv_sec+val;
+	current_pcs->timer_usec=tv.tv_usec;
+	}
+else {
+	current_pcs->timer_sec=tv.tv_sec+val/1000000;
+	current_pcs->timer_usec=tv.tv_usec+val%1000000;
+	}
+return OK;
 }
 
 
@@ -7543,7 +7760,7 @@ int com,ret;
 
 char *sub_com[]={ 
 "boottime","created","rawtime","date","usdate","revdate","time",
-"hour","mins","secs","wday","mday","month","year","dayname","monthname" 
+"hour","mins","secs","usecs","wday","mday","month","year","dayname","monthname" 
 };
 char *days[]={
 "Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"
@@ -7554,7 +7771,7 @@ char *months[]={
 };
 
 if (prog_word[pc].end_pos - pc<1) return ERR_SYNTAX;
-for(com=0;com<16;++com) 
+for(com=0;com<17;++com) 
 	if (!strcmp(sub_com[com],prog_word[pc+1].word)) goto FOUND;
 return ERR_SYNTAX;
 
@@ -7567,13 +7784,13 @@ if (prog_word[pc].end_pos - pc>=2) {
 	}
 else time(&tm_num);
 
-/* Set up the structure */
+/* Set up the tms structure. avtime struct is set in mainloop() */
 tms=localtime(&tm_num);
 
 switch(com) {
 	case 0: sprintf(text,"%d",(int)boottime);  break;
 	case 1: sprintf(text,"%d",(int)current_pcs->created);  break;
-	case 2: sprintf(text,"%d",(int)time(0));  break;
+	case 2: sprintf(text,"%d",avtime.tv_sec);  break;
 
 	case 3:
 	sprintf(text,"%02d/%02d/%02d",tms->tm_mday,tms->tm_mon+1,tms->tm_year);
@@ -7594,12 +7811,13 @@ switch(com) {
 	case 7: sprintf(text,"%d",tms->tm_hour);  break;
 	case 8: sprintf(text,"%d",tms->tm_min);  break;
 	case 9: sprintf(text,"%d",tms->tm_sec);  break;
-	case 10: sprintf(text,"%d",tms->tm_wday+1);  break;
-	case 11: sprintf(text,"%d",tms->tm_mday);  break;
-	case 12: sprintf(text,"%d",tms->tm_mon+1);  break;
-	case 13: sprintf(text,"%d",1900+tms->tm_year);  break;
-	case 14: sprintf(text,"%s",days[tms->tm_wday]);  break;
-	case 15: sprintf(text,"%s",months[tms->tm_mon]);  break;
+	case 10: sprintf(text,"%d",avtime.tv_usec);  break;
+	case 11: sprintf(text,"%d",tms->tm_wday+1);  break;
+	case 12: sprintf(text,"%d",tms->tm_mday);  break;
+	case 13: sprintf(text,"%d",tms->tm_mon+1);  break;
+	case 14: sprintf(text,"%d",1900+tms->tm_year);  break;
+	case 15: sprintf(text,"%s",days[tms->tm_wday]);  break;
+	case 16: sprintf(text,"%s",months[tms->tm_mon]);  break;
 	}
 return push_rstack(text);
 }

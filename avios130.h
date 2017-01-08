@@ -1,5 +1,5 @@
 /******************************************************************************
-                           AVIOS 1.2.0 header file
+                           AVIOS 1.3.0 header file
                       Copyright (C) Neil Robertson 1997
  ******************************************************************************/
 
@@ -12,8 +12,8 @@
 
 #define MAX_INCLUDE_LEVELS 10
 #define MEMORY_RESERVE 500
-#define NUM_COMS 118
-#define NUM_ERRS 55
+#define NUM_COMS 123
+#define NUM_ERRS 57
 #define NUM_COLS 21
 #define ARR_SIZE 5000
 #define MAX_ARGC 100
@@ -79,8 +79,8 @@ struct process {
 
 	struct procedures *wait_var_proc,*c_int_proc,*n_int_proc,*t_int_proc;
 	char *wait_var,*input_buff,*mesg_q,*death_mesg;
-	int mesg_cnt,sleep_to,wait_pid,death_pid;
-	int timer_exp,err_cnt,exit_cnt,input_vnum;
+	int mesg_cnt,sleep_sec,sleep_usec,wait_pid,death_pid;
+	int timer_sec,timer_usec,err_cnt,exit_cnt,input_vnum;
 	int eof,exit_code,int_enabled,interrupted,colour;
 	time_t created;
 
@@ -298,7 +298,8 @@ struct {
 		"return", PCA,com_return_endproc,
 		"exit",   PCV,com_exit_sleep,
 
-		"sleep",PCV,com_exit_sleep,
+		"sleep", PCV,com_exit_sleep,
+		"usleep",PCV,com_exit_sleep,
 
 		"input",PCV,com_input,
 
@@ -324,8 +325,9 @@ struct {
 
 		"count",PCV,com_count,
 
-		"match"  ,PCV,com_strings2,
-		"unmatch",PCV,com_strings2,
+		"match"  , PCV,com_strings2,
+		"unmatch", PCV,com_strings2,
+		"matchstr",PCV,com_strings2,
 
 		"unique",PCV,com_strings1,
 		"head",  PCV,com_strings1,
@@ -347,8 +349,10 @@ struct {
 		"open",  PCV,com_open,
 		"close", PCV,com_close_delete,
 		"delete",PCV,com_close_delete,
+		"stat",  PCV,com_strings1,
 		"rename",PCV,com_strings2,
 		"copy",  PCV,com_strings2,
+		"chmod", PCV,com_strings2,
 		"cseek", PCV,com_seek,
 		"lseek", PCV,com_seek,
 		"dir",   PCV,com_dir,
@@ -370,6 +374,7 @@ struct {
 		"onint",    PCV,com_onint,
 		"interrupt",PCV,com_interrupt,
 		"timer",    PCV,com_timer,
+		"utimer",   PCV,com_timer,
 		"ei",       PCV,com_ei_di,
 		"di",       PCV,com_ei_di,
 
@@ -439,6 +444,7 @@ enum command_vals {
 	RETURN,
 	EXIT,
 	SLEEP,
+	USLEEP,
 	INPUT,
 	STRLEN,
 	ISNUM,
@@ -460,6 +466,7 @@ enum command_vals {
 	COUNT,
 	MATCH,
 	UNMATCH,
+	MATCHSTR,
 	UNIQUE,
 	HEAD,
 	RHEAD,
@@ -476,8 +483,10 @@ enum command_vals {
 	OPEN,
 	CLOSE,
 	DELETE,
+	STAT,
 	RENAME,
 	COPY,
+	CHMOD,
 	CSEEK,
 	LSEEK,
 	DIRCOM,
@@ -495,6 +504,7 @@ enum command_vals {
 	ONINT,
 	INTERRUPT,
 	TIMER,
+	UTIMER,
 	EI,
 	DI,
 	GETTIME,
@@ -524,7 +534,6 @@ char *error_mesg[NUM_ERRS]={
 	"Ok",
 	"Internal error",
 	"Memory allocation error",
-	"Program too big",
 	"Missing bracket",
 	"Line too long",
 	"Unterminated string",
@@ -533,6 +542,7 @@ char *error_mesg[NUM_ERRS]={
 	"Main procedure missing",
 	"Syntax error",
 	"Invalid argument",
+	"Too many arguments",
 	"Illegal character in string",
 	"Undefined label",
 	"Undefined variable",
@@ -566,6 +576,8 @@ char *error_mesg[NUM_ERRS]={
 	"Cannot open file",
 	"Cannot delete file",
 	"Cannot rename file",
+	"Cannot stat file",
+	"Cannot change file permissions",
 	"File is in use",
 	"Cannot open directory",
 	"Maximum process count reached",
@@ -583,7 +595,6 @@ enum error_codes {
 	OK,
 	ERR_INTERNAL,
 	ERR_MALLOC,
-	ERR_PROG_TOO_BIG,
 	ERR_MISSING_BRACKET,
 	ERR_LINE_TOO_LONG,
 	ERR_UNTERMINATED_STRING,
@@ -592,6 +603,7 @@ enum error_codes {
 	ERR_MAIN_PROC_MISSING,
 	ERR_SYNTAX,
 	ERR_INVALID_ARGUMENT,
+	ERR_TOO_MANY_ARGS,
 	ERR_ILLEGAL_CHAR,
 	ERR_UNDEF_LABELNAME,
 	ERR_UNDEF_VAR,
@@ -625,6 +637,8 @@ enum error_codes {
 	ERR_CANT_OPEN_FILE,
 	ERR_CANT_DELETE_FILE,
 	ERR_CANT_RENAME_FILE,
+	ERR_CANT_STAT_FILE,
+	ERR_CANT_CHANGE_FILE_PERM,
 	ERR_FILE_IN_USE,
 	ERR_CANT_OPEN_DIR,
 	ERR_MAX_PROCESSES,
@@ -668,11 +682,12 @@ int be_daemon,max_processes,max_mesgs,max_errors,exit_remain,swapout_after;
 int process_count,memory_reserve,eval_result,real_line,inst_cnt;
 int colour_def,kill_any,child_die,ignore_sigterm,wait_on_dint;
 int pause_on_sigtstp,consock,conalarm_called,connect_timeout;
-int allow_ur_path,tuning_delay;
+int allow_ur_path,tuning_delay,qbm;
 
 time_t boottime;
+struct timeval avtime;
 
-char *syslog_file,*init_file;
+char build[50],*syslog_file,*init_file;
 char text[ARR_SIZE+1],text2[ARR_SIZE+1];
 char code_path[200],root_path[200],*incf;
 

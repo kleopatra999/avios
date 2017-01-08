@@ -1,25 +1,26 @@
-# This program demonstrates a type of virus. It connects to the runprog 
-# process on port 4030 and copies its own code over using the $prog array.
-# The new program thus created goes and does exactly the same thing and so on.
+# This program creates a copy of its own code in a string, then does an
+# inline exec of this string creating a new copy of itself which then goes 
+# on to do the same and so on.
 
 proc main
-var line fd pln s v
+var pln pln2 s v cnt newvirus pid
 
-set fd [connect "localhost" 4030]
-out fd
-in fd
 while 1
 	set pln 1
+	set newvirus ""
 	foreach s v in $prog
-		if pln!=[rhead v]; printnl; endif
-		print [rtail v] " "
-		set pln [rhead v]
-	nexteach
-	printnl
-	printnl "."
+		set cnt [count v]
 
-	# Get OK/ERROR message from runprog just so it doesn't fill
-	# up the socket input buffer.
-	input line 
+		# Get program line number
+		set pln2 [elements v [sub cnt 2]]
+		if pln!=pln2 and newvirus!=""
+			set newvirus [addstr newvirus ";"]
+		endif
+
+		# Write out program text only.
+		set newvirus [addstr newvirus [elements v 1 [sub cnt 3]] " "]
+		set pln pln2
+	nexteach
+	iexec back orphan pid newvirus "virus"
 wend
 endproc

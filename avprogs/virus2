@@ -1,0 +1,31 @@
+# This program demonstrates another type of virus. It connects to the runprog 
+# process on port 4030 and copies its own code over using the $prog array.
+# The new program thus created goes and does exactly the same thing and so on.
+
+proc main
+var line fd pln pln2 s v cnt
+
+set fd [connect "localhost" 4030]
+out fd
+in fd
+while 1
+	set pln 1
+	foreach s v in $prog
+		set cnt [count v]
+
+		# Get program line number
+		set pln2 [elements v [sub cnt 2]]
+		if pln!=pln2; printnl; endif
+
+		# Write out program text only.
+		print [elements v 1 [sub cnt 3]] " "
+		set pln pln2
+	nexteach
+	printnl
+	printnl "."
+
+	# Get OK/ERROR message from runprog just so it doesn't fill
+	# up the socket input buffer.
+	input line 
+wend
+endproc

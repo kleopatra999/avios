@@ -83,7 +83,7 @@ while 1
 	print "~FTMove> ";  input pos
 	if pos=""; continue; endif
 
-	if pos<1 or pos>9 
+	if [not [isnum pos]] or pos<1 or pos>9 
 		printnl "~FR~OLIllegal input.";  continue
 	endif
 	if board#pos!="."

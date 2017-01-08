@@ -39,3 +39,14 @@ Versions relased so far (and the release date):
    Added $prog array variable.
    Changed gettime commands "sysboot" option to "boottime".
    Minor bug fixes and code mods.
+
+1.3.0 (15/10/97)
+   Added matchstr, usleep, utimer, chmod & stat commands.
+   Added wildcard pattern matching to dir command.
+   Added $build, $uname and $unixuser system variables.
+   Added real line and filename info to the $prog array which may cause 
+       incompatabilities with any 1.2.0 programs using it.
+   Added "usecs" option to gettime command which provides the current number of
+       microseconds in the second.
+   Added -q quite bootup mode command line option.
+   Minor bug fixes.
