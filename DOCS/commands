@@ -1,7 +1,6 @@
                           *** THE COMMANDS ***
 
-Here are a list of the commands that currently have been implemented. More may 
-possibly get added but its unlikely.
+Here are a list of the commands that currently have been implemented.
 
 -------------------------------------------------------------------------------
 
@@ -58,6 +57,25 @@ number is not used.
 
 eg: set tom [addstr "hello " "world]
     set dick:"one" "test string"
+
+-------------------------------------------------------------------------------
+
+tset <variable> <old value> <new value>
+
+This is the test and set command which allows the testing and setting of
+shared variables atomically. Ie the process cannot be swapped out while it
+is doing the combined test and set and so this allows shared variables to
+be used as semaphores in interprocess communications. If you were to do the
+same operation using an "if" statement then the process may get swapped out 
+between the test and set which could cause problems. The command checks
+the variable agains the old value. If the variable has this value then it
+will set it to the new value and return 1. If not it will not change the 
+variable and will return 0.
+  This command can also be used on ordinary variables as shorthand for an
+if var=....; set var..; endif;  statement.
+
+eg: set pid pcs?"testprog"
+    while [not [tset pid.testvar "old" "new"]]; wend  # Spin on semaphore
 
 -------------------------------------------------------------------------------
 
@@ -131,15 +149,16 @@ eg: printnl [maxstr "hello" "cruel" "world"]
 
 print <string or numeric list>
 printnl <string or numeric list>
+printlog <string or numeric list>
 
-These are the 2 output commands the language uses which will output to wherever
-the current outstream is pointing too. The only difference between the commands
-is that printnl places a newline on the end of its output. These commands
-can cause the process to go to an OUTPUT_WAIT state if they try to write
-to locked stream or full message queue stream unless the stream is non-blocking
-in which case they'll just fall through having done nothing (but the
-$print_ok system variable will have been set to 0 so you can check for
-this occurance).
+These are the 3 output commands the language uses. The first two will output 
+to wherever the current outstream is pointing too whereas printlog prints to
+the system log. Printnl automatically places a newline on the end of its 
+output, the others do not. The first two commands can cause the process to go 
+to an OUTPUT_WAIT state if they try to write to locked stream or full message 
+queue stream unless the stream is non-blocking in which case they'll just fall 
+through having done nothing (but the $print_ok system variable will have been 
+set to 0 so you can check for this occurance).
 
 eg: printnl "hello" [addstr "cru" "el"] "world " 2 " day"
 
@@ -253,14 +272,30 @@ structure. See above.
 -------------------------------------------------------------------------------
 
 call <procedure> [<parameters>]
+vcall <procedure derived from operation> [<parameters>]
 
-Unsurprisingly this calls a procedure with optional parameters. This command 
+Unsurprisingly this calls a procedure with optional parameters. These commands
 cannot be nested because of a rather intractable coding reason (we'd need to
 unwrap recursive calls within the interpeter itself) so the procedure return 
-value is stored in the system $proc array.
+value is stored in the system $proc array. The vcall command takes strings,
+variables or command outputs as the name of the procedure to call. The 'v'
+stands for variable incidently as the procedure name argument can vary since 
+it isn't fixed in the code (ie: its the equivalent of using function pointers
+in C). 
+    If I was writing Avios from scratch I'd probably leave out "call" 
+altogether as vcall is more flexible and does the same but call is left in for 
+compatability reasons with AviosPL old code (and I suppose it looks a bit 
+neater too).
 
 eg: call fred a b
     printnl $proc:"fred"
+
+
+    set procs "tom dick harry"
+    for i 1 to 3
+        vcall [elements procs i] a b
+        printnl $result
+    next
 
 -------------------------------------------------------------------------------
 
@@ -394,7 +429,7 @@ eg: printnl [midstr "12345" 2 4]
 -------------------------------------------------------------------------------
 
 insertstr <string> <string to insert> <position>
-overwrstr <string> <string to insert> <position>
+overstr <string> <string to insert> <position>
 
 Both these put one string inside another starting from position, the difference
 being that the top one will keep the strings original contents and shift them 
@@ -403,6 +438,15 @@ necessary.
 
 eg: printnl [insertstr "1256" "34" 3]
     printnl [overwrstr "1256" "34" 3]
+
+-------------------------------------------------------------------------------
+
+replstr <string> <old string> <new string> [<start position>]
+
+This replaces any occurance of the old string found in string with the new
+string with the option to provide a search start position.
+
+eg: printnl [replstr "xyzdefg xyzdefg" "xyz" "abc"]
 
 -------------------------------------------------------------------------------
 
@@ -431,6 +475,15 @@ eg: printnl [insertelem "one two four" "three" 3]
 
 -------------------------------------------------------------------------------
 
+replelem <list> <old element> <new element> [<start position>]
+
+This will replace all occurances of the old element in the list with the
+new element optionally starting at the start position.
+
+eg: printnl [replelem "one two wibble four wibble two one" "wibble" "three"]
+
+-------------------------------------------------------------------------------
+
 elements <list> <from> [<to>]
 
 This will list the elements from element number 'from' to 'to'. If 'to' is
@@ -450,15 +503,19 @@ eg: printnl [count "there are seven elements in this list"]
 -------------------------------------------------------------------------------
 
 match <list1> <list2>
+unmatch <list1> <list2>
 
-This will return a string with all the elements that are common to list1 and
-list2. Things to note are that it does not check for repeated elements in
-list1 (tedious to code) so these will get returned twice if they exist and
-they match but it will not repeat for elements that match and are repeated
-in list2.
+Match will return a string with all the elements in list1 that are also in
+list2. Unmatch does the opposite and returns the elements in list1 that are
+unmatched in list2. Things to note are that the do not check for repeated 
+elements in list1 (tedious to code) so these will get returned twice if they 
+exist and are part of the result. Duplicate elements in list2 will only be 
+returned once for a match.
 
 eg: printnl [match "a a b c d e" "a h k q d p"]  gives "a a d".
 but printnl [match "a b c d e" "a a h k q d p"]  will only give "a d".
+
+    printnl [unmatch "a a b c d e" "a h k q d p"] gives "b c e"
 
 ------------------------------------------------------------------------------
 
@@ -670,22 +727,26 @@ eg: print [format "\aName: \"%-20s\", Total: %03d\n" name [add tot1 tot2]]
 
 crypt <string> <salt>
 
-This calls the unix crypt function with the string to be encrypted and the
-salt.
-eg: set encpasswd [crypt passwd "NU"]
+This calls the unix crypt function (or avios_crypt() if unix function not
+available) with the string to be encrypted and the salt.
+
+eg: set encrypted_passwd [crypt passwd "NU"]
 
 -------------------------------------------------------------------------------
 
-spawn child/orphan <pid var> [<new process name>]
+spawn [term/back] [child/orphan] <pid var> [<new process name>]
 
-This will spawn a new process. The child/orphan option will decide whether
+This will spawn a new process. The term and back options allow you to run the 
+new process on the system console or in the background instead of them using 
+the port of the current process. The child/orphan option will decide whether
 the new processes parent pid will be set to that of the spawning process
-or will be set to zero. The pid variable will be set to the pid of the
-process created in the enviroment of the parent process but will be set to
-zero in the enviroment of the child/orphan process (which will commence its
-execution from the command immediately following "spawn" in the code).
-The optional new process name will rename the new process otherwise the
-process is given the same name as its parent.
+or will be set to zero. If this option is ommited it defaults to a child 
+process. The pid variable will be set to the pid of the process created in the 
+enviroment of the parent process but will be set to zero in the enviroment of 
+the child/orphan process (which will commence its execution from the command 
+immediately following "spawn" in the code). The optional new process name will 
+rename the new process otherwise the process is given the same name as its 
+parent.
 
 eg: var pid
     spawn child pid "tom"
@@ -693,19 +754,29 @@ eg: var pid
    
 -------------------------------------------------------------------------------
 
-exec child/orphan <pid var> <filename> <process name> [<arguments>]
+exec [term/back] [child/orphan] <pid var> <filename> <process name> [<arguments>]
+iexec [term/back] [child/orphan] <pid var> <program code> <process name> [<arguments>]
 
-Exec will create an entirely new process, loading up and running the 
-program file given, giving it the process name and passing it the command
-line arguments if any. The exec'ing process will be returned the pid of
-the new process. The new process (unlike in the spawn command) will start
-running from the beginning of its main procedure and if the child option
-is specified its parent id will be set to that of the exec'ing process else
-it'll be set to zero.
+These will create an entirely new process, either loading up and running the 
+program file given or running the inline code passed with iexec giving it the 
+process name and passing it the command line arguments if any. The exec'ing 
+process will be returned the pid of the new process. The new process (unlike 
+in the spawn command) will start running from the beginning of its main 
+procedure and if the child option is specified its parent id will be set to 
+that of the exec'ing process else it'll be set to zero.
+    The term and back options allow you to run the new process on the system
+console or in the background instead of them using the port of the current
+process and the child and orphan options allow you to decide whether the 
+new process will be a child of the exec'ing one or not. If ommited it defaults
+to being a child.
 
 eg: var pid
     exec child pid "progfile" "tom" "hello" "world"
     printnl "New pid: " pid
+
+    iexec child pid [format "proc main argc argv\n \
+                     printnl $name \",\" argc \",\" argv\nendproc"] \
+                    "tom" "hello world"
 
 In the above you could also do the following:
     exec child pid "progfile tom hello world"
@@ -896,13 +967,13 @@ eg: proc main
 
 -------------------------------------------------------------------------------
 
-gettime sysboot/created/rawtime/date/usdate/rvdate/time/...
+gettime boottime/created/rawtime/date/usdate/rvdate/time/...
         hours/mins/secs/wday/mday/month/year/dayname/monthname  [<rawtime>]
 
 This commands returns various times in various formats which mean the
 following:
 
-sysboot  : Raw time in seconds when Avios was booted (unaffected by optional arg).
+boottime  : Raw time in seconds when Avios was booted (unaffected by optional arg).
 created  : Raw time when process making this call was created (as above).
 rawtime  : Current raw time in seconds from unix time(0) function (as above).
 date     : Date in day/month/year format as used in most of the world.

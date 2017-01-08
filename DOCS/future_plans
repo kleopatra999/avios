@@ -1,28 +1,10 @@
 
-                       *** PLANS FOR THE FUTURE ***
+                      *** POSSIBLE FUTURE FEATURES ***
 
-Things that will get done:
-   Nested include files.
-   Commands split over multiple lines
-   Support for floating point numbers.
-   Extra maths commands.
-   Bug fixing (if there are any, ahem :)
+ - Auto reboot of failed terminal/background processes.
 
+ - Extend iexec command to allow processes to create a new image process to 
+   sit on a new port.
 
-Things that will get done eventually:
-   Auto reboot of failed terminal/background processes.
-   Create a central message queue for all processes.
-   Optimise code a bit more (eg: ditch main command switch statement 
-                                 and replace with function pointers)
-
-
-An idea on the horizon: 
-   Allow processes to create a new image process to sit on a new port.
-   Write an AviosPL program that can transfer other AviosPL programs between
-      Avios systems so allowing net crawlers and bots.
-
-
-Yeah right, keeping taking the pills:
-   Bribe Sun and Oracle who'll then ditch the JavaVM and back Avios making
-   me a millionaire in the process :)      
+ - Create a central message queue for all processes.
 

@@ -1,0 +1,23 @@
+# This sends a program via TCP to runprog (set up as sitting on port 4030 in 
+# the init file) demonstrating how Avios programs can be sent across a network
+# to another server and run.
+
+proc main
+var fd sock line
+
+set fd [open to read "avprogs/killer"]
+set sock [connect "localhost" 4030]
+in fd
+out sock
+input line
+while [not $eof]
+	printnl line;  input line
+wend
+printnl "."
+in sock
+out "STDOUT"
+input line
+printlog "Sendprog got: " line
+close fd
+close sock
+endproc

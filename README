@@ -2,7 +2,9 @@
                        *** The Avios REAME file. ***
 
 This is just a short introduction to Avios as most of the documentation
-you will need is in the DOCS directory.
+you will need is in the DOCS directory. If you're in a hurry and can't
+be bothered to read this yet (you lazy bastard :) read DOCS/comp_and_run for 
+compiling info.
 
 The OS
 ------
@@ -43,34 +45,40 @@ on them) and it also has some complex list processing functions.
 
 Example code
 ------------
-   With this server comes some example applications and test programs for you 
-to run and look through to get a feel of how things are done. The main 
-application is a simple talk server and talk client programs for you to use as 
-a starting point to perhaps build your own. It is intended as a demonstrator
-not as a fully functioning talker so don't be disappointed when you run it
-(though if you're really not bothered about features it could be used as is)
-if you've been using NUTS or some other talker. Another application is a simple
-web server program which you should be able to see shows how a separate web
-server and GCI back end can be built using Avios and there is a noughts and
-crosses game too. I say a simple web server as there is no database 
-connectivity and downloading gif and jpeg files are a problem as Avios is text 
-based and isn't geared up to deal with binary data.
+   With this server comes some example applications for you to run and look 
+through to get a feel of how things are done. They are in the "avprogs"
+directory and the main application is a simple talk server and talk client 
+programs for you to use as a starting point to perhaps build your own. It is 
+intended as a demonstrator not as a fully functioning talker so don't be 
+disappointed when you run it (though if you're really not bothered about 
+features it could be used as is) if you've been using NUTS or some other 
+talker. 
+   Another application is a simple web server program which you should be able 
+to see shows how a separate web server and GCI back end can be built using 
+Avios. I say a simple web server as there is no database connectivity and 
+downloading gif and jpeg files are a problem as Avios is text based and isn't 
+geared up to deal with binary data (and probably never will be).
+   There is a noughts and crosses game too (ox) and some programs which give
+an example of the transfer of Avios programs over a network (though its
+only done within this system for this example) and they are sendprog and
+runprog , the latter using the iexec command to execute the program once
+it has been loaded in.
+   Finally there is a clock program and pcs which is a short program which you 
+can use as a type of console to view the processes in Avios and if kill_any is 
+set to yes you can use its kill command to kill any non-image ones.
    When you run Avios you will see that the syslog says that the talkserv 
 program gets open() errors. This is perfectly normal as talkserv is simply
 trying to check some message board files which don't yet exist.
-   I have also included a load of test programs I used whilst developing the
-system (though not all as I managed to delete half by mistake :( . You may 
-find them usefull as a guide to how some of the features work. There is also a 
-short program called "pcs" which you can use as a type of console to view the 
-processes in Avios and if kill_any is set to yes you can use its kill command 
-to kill any non-image ones.
 
 
 Restrictions
 ------------
-Avios doesn't currently support floating point numbers and hence its maths
-functions are limited to integer operations. I hope to add floating point
-support in the next release.
+Avios doesn't support floating point numbers and hence its maths functions are 
+limited to integer operations. I was going to add floating point but the 
+amount of work need is too great for the rather marginal (and for most
+servers irrelevant) functionality gain. Also Avios is not very happy dealing
+with binary data as it was designed to be a system to implement text based
+servers.
 
 
 Documentation
@@ -89,11 +97,10 @@ first and make sure you're not getting it wrong!!)
 
 Neil Robertson
 
-August 1997
+August/September 1997
 
 Email: neil@ogham.demon.co.uk
 
 
-NB:
-There are *no* backdoors in this system unlike in NUTS. There is however
-a harmless easter egg, see if you can find it :)
+NB: There is a harmless easter egg in the code which contains an ongoing
+    story (updated with each new release), see if you can find it :)

@@ -7,21 +7,21 @@ code is all in one module** and all the header is just one module there is no
 makefile, you just call the compiler direct from the command line (or make
 up a short shell file) as so:
 
-Linux: cc -DLINUX avios101.c
+Linux: cc -DLINUX avios120.c
 
-OSF, SunOS5.5: cc avios101.c
+OSF, SunOS5.5: cc avios120.c
     (For SunOS above make sure cc is a link or alias to the berkeley
      compiler which is usually /usr/ucb/cc. SunOS GCC might not work)
 
-HP-UX 10.01: cc -Ae -DNO_USLEEP avios101.c   
-HP-UX 10.20: cc -Ae avios101.c  
+HP-UX 10.01: cc -Ae -DNO_USLEEP avios120.c   
+HP-UX 10.20: cc -Ae avios120.c  
     (You'll need the HP-UX ANSI compiler for both of the above)
 
-FreeBSD: cc -DFREEBSD avios101.c  
-     (Some setups may have problems with the crypt() call. Nothing I can do
-      about this.)
+FreeBSD: cc -DFREEBSD avios120.c  
+     (Some setups may have problems with the crypt() call. If this is the
+      case then add -DNO_CRYPT on the compile line.)
 
-AIX: cc avios101.c (maybe, I'm just guessing)
+AIX: cc avios120.c (maybe, I'm just guessing)
 
 If you have a system that is not mentioned here and it compiles successfully
 on it please let me know what the compiler command line options are so I can
@@ -35,7 +35,7 @@ typing the name. Avios has some command line options however which you can
 use. These are:
 
  -i <init file>: Set the init file to something other than the default 'init'.
- -s <syslog file>: Set the syslog to write to a fie rather than stdout.
+ -s <syslog file>: Set the syslog to write to a file rather than stdout.
  -d: Run as a daemon.
  -v: Print the Avios version number.
  -h: Print some command line option help.

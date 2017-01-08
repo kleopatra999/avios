@@ -1,0 +1,27 @@
+# This is the receiving process for the transmission of Avios bots 
+# across the net. It downloads the processes code then runs it as an
+# orphan in the background. It'll continue doing this until the remote
+# process disconnects. Sendprog is the program that sends them.
+
+&stdalias
+
+proc main
+var line prog pid err
+
+colour off
+while TRUE
+	set prog ""
+	input line
+	while line!="."
+		# Seperate with "\n". Can't use ";" as this won't work if 
+		# the code has comments in it.
+		set prog [addstr prog [format "\n"] line]	
+		input line
+	wend
+	if [set err [trap [iexec back orphan pid prog "RP_PROG"]]]!=OK
+		printnl "ERROR: " $error#err
+	else
+		printnl "OK"
+	endif
+wend
+endproc

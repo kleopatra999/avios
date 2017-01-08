@@ -1,8 +1,0 @@
-# A simple clock
-proc main
-nonblock "STDIN"
-while 1
-	print [format "%s, %d %s %d, \a%s\r" [gettime dayname] [gettime mday] [gettime monthname] [gettime year] [gettime time]]
-	sleep 1
-wend
-endproc

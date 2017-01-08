@@ -17,7 +17,8 @@ Terminal processes:
 Background processes:
     Created using the BACK option these run in the background and the standard 
     I/O streams are not linked to any I/O channels. Trying to read or write
-    to them will cause an "Unset stream" error.
+    to them will cause an "Unset stream" error though it can always write to
+    the system log using printlog or any other stream.
 
 Image processes:
     If a process has a port number as the option then an image process is
@@ -94,8 +95,24 @@ killing it) so I will not mention it further.
 Exiting
 -------
 
-if a process exits by using the exit command (which takes an exit code as an
+If a process exits by using the exit command (which takes an exit code as an
 argument) then the syslog will say the process exited with a process code.
 If the process exited due to an error or it reached "endproc" in the main
 procedure then the syslog will say it exited with a system code. The codes
 given match the errors stored in the $error array.
+   A process will also exit if its controlling socket closes but only if it
+tries to do a read or write to this socket (since Avios does not actively
+check socket status in the background as it would be too cpu intensive).
+
+
+Processes creating new processes
+--------------------------------
+
+Processes can create new processes using either the spawn, exec or iexec
+commands. These new processes can either be children of the process ie:
+their parent pid is set to the creating processes pid, or orphans: their
+parent pid is set to zero. They can also either be connected to the same
+socket as their parent or run on the system console/terminal or run in 
+the background. See the command docs for more information.
+
+

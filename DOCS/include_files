@@ -6,6 +6,5 @@ eg: &roomdata
 
 They may contain anything that the main file may contain including the 
 main procedure itself so long as it isn't duplicated anywhere else.
-For this release of Avios (1.0.1) only one level of include file nesting is
-permitted but I hope to be able to lift this restriction for release 1.1.0.
-
+Include files can be nested , the level of nesting has a soft limit set
+by the MAX_INCLUDE_LEVELS macro in the header file. 

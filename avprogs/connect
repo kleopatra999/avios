@@ -1,0 +1,30 @@
+# This demonstrates how to use the connect command. This program will connect
+# to your local sendmail server and you can talk to it using SMTP. It spawns
+# a copy of itself so that the parent can sping reading data in from the 
+# server and printing it on screen whilst the child can read data from the
+# keyboard and send it to the server.
+
+proc main
+var line pid sock
+
+colour off
+set sock [connect "localhost" 25]
+
+spawn pid
+if pid
+	# Get data from server.
+	in sock
+	input line
+	while [not $eof]
+		printnl line;  input line
+	wend
+	exit 0
+endif
+
+# Get user input and send to server.
+out sock
+while 1
+	input line;  printnl line
+wend
+endproc
+

@@ -1,0 +1,26 @@
+# This demonstrates how you can use the vcall command
+proc main
+var prc r
+
+foreach prc r in $proc
+	if prc!="main"
+		printnl [format "Calling procedure \"%s\"" prc]
+		vcall prc
+	endif
+nexteach
+endproc
+
+
+proc one
+printnl "This is procedure one."
+endproc
+
+
+proc two 
+printnl "This is procedure two."
+endproc
+
+
+proc three
+printnl "This is procedure three."
+endproc

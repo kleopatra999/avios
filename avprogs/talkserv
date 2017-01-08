@@ -9,10 +9,11 @@
 # time.
 #
 
-alias 0 OK
+&stdalias
+
 alias 20 MAX_LINES
 alias "talkclient" TALKC
-alias "passfile" PFILE
+alias "talkdata/passfile" PASSFILE
 alias "talkdata" DATADIR
 alias "Sorry - a system error has occured."  SYSERROR
 
@@ -39,7 +40,7 @@ di on write_room
 di on write_user
 in "MESG_Q"
 
-while 1
+while TRUE
 	while $mesg_cnt
 		input pid line 
 		if $pcs:pid!=TALKC; continue; endif
@@ -250,7 +251,8 @@ nexteach
 if cnt=0; call write_user pid [format "~FTYou are all alone here.\n"]; endif
 
 set priv [add [head roomdata:uroom] 1]
-set str [addstr "Access is currently " pubpriv#priv " and there are ~FM~OL" [elements roomdata:uroom 2] "~RS messages on the board."]
+set str [addstr "Access is currently " pubpriv#priv " and there are ~FM~OL" \
+        [elements roomdata:uroom 2] "~RS messages on the board."]
 call write_user pid str
 
 if roomtopic:uroom=""; call write_user pid "There is no current topic."
@@ -297,7 +299,7 @@ if desc=""
 	call write_user pid "You must give a description.";  return;
 endif
 
-if [trap [set infd [open to read PFILE]]]
+if [trap [set infd [open to read PASSFILE]]]
 	call write_user pid SYSERROR;  return
 endif
 
@@ -317,7 +319,7 @@ wend
 close infd outfd
 in "MESG_Q"; out "STDOUT"
 
-rename "temp" PFILE
+rename "temp" PASSFILE
 set userdesc:pid desc
 call write_user pid "Description set."
 endproc

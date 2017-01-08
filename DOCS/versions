@@ -1,7 +1,7 @@
 
                               *** VERSIONS ***
 
-The Avios version number consists of 3 fields. The major , minor and patch
+The Avios version number consists of 3 fields: The major , minor and patch
 levels. eg: 1.0.0 , means major version 1, minor version 0 and patch level
 0. If a small bug fix or some minor change has been done to the code then
 I'll up the patch level. If new features have been added or old ones changed
@@ -10,12 +10,32 @@ a complete rewrite then I'll up the major version number.
 
 Versions relased so far (and the release date):
 
-1.0.0 (11/8/97)
+1.0.0 (Release date: 11/8/97)
+   Initial release.
 
 1.0.1 (18/8/97)
    Added pause_on_sigtstp init file option.
    evaluate_complete_expression() now does lazy evaluation.
    Various bug fixes and minor code changes and additions done including 
-   -DLINUX compile option.
+       -DLINUX compile option.
 
+1.1.0 (8/9/97)
+   Added include file nesting.
+   Commands can now be split over multiple lines using '\'
+   Replaced main command switch statement with function pointers
+   Added vcall, unmatch & printlog commands.
+   Added iexec command allowing inline code execution.
+   Added "term" and "back" options to exec, iexec and spawn commands.
+   Made spawn and exec "child" and "orphan" options optional.
+   Added -DNO_CRYPT compile option and avios_crypt() function in case unix
+       crypt() function not available.
+   Made other minor code changes and bug fixes and tidied code up a bit.
 
+1.2.0 (22/9/97)
+   Added replstr & replelem commands.
+   Added tset command allowing atomic test and set operations on shared 
+       variables.
+   Added tuning_delay init file option.
+   Added $prog array variable.
+   Changed gettime commands "sysboot" option to "boottime".
+   Minor bug fixes and code mods.

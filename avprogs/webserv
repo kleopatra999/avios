@@ -5,7 +5,7 @@
 #--- the browser nor will it serve binary gif/jpeg/java files due to the
 #--- way Avios works though it works fine with Ascii Javascript code.
 
-alias 0 OK
+&stdalias
 
 proc main
 var line

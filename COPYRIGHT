@@ -2,9 +2,9 @@
                        *** COPYRIGHT AND RESTRICTIONS ***
 
 This software is provided as is. It could and probably does have some minor
-bugs and I will not guarantee its reliability for long term non-stop operation
-and hence because of this I accept no liability for any problems that may
-arise from you using it. 
+bugs so I will not guarantee its reliability for long term non-stop operation
+or for any critical applications and hence because of this I accept no 
+liability for any problems that may arise from you using it. 
 
     The Avios source code is copyright to me (Neil Robertson) but it is
 Freeware (NOT public domain) which means you can distribute it to anyone you 
@@ -27,8 +27,9 @@ sell them.
     I ask for no royalties on either pay-to-use systems run by Avios or on
 any AviosPL programs you have written that you sell.
 
+IF YOU DO NOT AGREE TO ALL OF THESE CONDITIONS DO NOT USE THIS SOFTWARE.
 
 Neil Robertson
 
-August 1997
+August/September 1997
 

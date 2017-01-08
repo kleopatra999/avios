@@ -98,6 +98,19 @@ connect_timeout <seconds>
     to allow the system to continue. The default is to wait for the TCP timeout
     which could be quite a long time (minutes perhaps?)
 
+tuning_delay <microseconds>
+    Avios tends to be rather heavy on processor usage even when its just 
+    idling as the system is constantly checking for input or running AviosPL
+    commands. Because of this I have added a delay factor in the main loop
+    which takes place just before every traversal of the Avios process table.
+    If for example you have a value of 1000 then Avios will pause for 1000
+    microseconds before each traversal of the table. Thats the idea anyway, on
+    a lot of systems howevere the operation of the usleep() function used to 
+    do this seems a bit inaccurate. At any rate it should the CPU usage of
+    Avios by a significant amount but naturally it makes the whole system run
+    slowerso its up to you to tune it to what you think is appropriate.
+    The default is 0.
+
 
 
 The PROCESSES section has the following format:
@@ -109,7 +122,8 @@ The PROCESSES section has the following format:
 
 The I/O source is either: 
     TERM  - Process runs on the terminal (ie uses unix stdin , out & err).
-    BACK  - Process is a background one and has no standard I/O.
+    BACK  - Process is a background one and has no standard I/O (but it can 
+            still use printlog)
    <port> - The port number the image of the process will listen on.
 
 The process filename is the name of the file where the process source code

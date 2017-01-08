@@ -1,0 +1,18 @@
+# This is an example program used by sendprog. It will kill any talkclient
+# program started up (as long as kill_any init option is YES)
+
+&stdalias
+
+proc main
+var pid name status
+
+while TRUE
+	foreach pid name in $pcs
+		if [trap [set status [elements [pcsinfo pid] 8]]]=OK
+			if name="talkclient" and status!="IMAGE"
+				trap [kill pid]
+			endif
+		endif
+	nexteach
+wend
+endproc

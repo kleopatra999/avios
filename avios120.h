@@ -1,13 +1,19 @@
 /******************************************************************************
-                           AVIOS 1.0.1 header file
+                           AVIOS 1.2.0 header file
                       Copyright (C) Neil Robertson 1997
  ******************************************************************************/
 
 #define INIT_FILE "init"
 
+#define NO 0
+#define YES 1
+#define OFF 0
+#define ON 1
+
+#define MAX_INCLUDE_LEVELS 10
 #define MEMORY_RESERVE 500
-#define NUM_COMS 111
-#define NUM_ERRS 54
+#define NUM_COMS 118
+#define NUM_ERRS 55
 #define NUM_COLS 21
 #define ARR_SIZE 5000
 #define MAX_ARGC 100
@@ -17,13 +23,6 @@
 #define MAX_ERRORS 1
 #define SWAPOUT_AFTER 10  /* Max no. instructions run before process swapout */
 #define EXIT_REMAIN 5
-#define COLOUR_DEF 1
-#define IGNORE_SIGTERM 0
-#define KILL_ANY 0
-#define CHILD_DIE 0
-#define WAIT_ON_DINT 1
-#define ALLOW_UR_PATH 1
-#define PAUSE_ON_SIGTSTP 1
 
 /* Internal stream types. There is only 1 at the moment. */
 #define MESG_Q 0
@@ -45,6 +44,10 @@
 #define ARRAY 2
 #define STATIC 4
 #define SHARED 8
+
+/* Arg flags */
+#define PCA 0  /* Program counter address */
+#define PCV 1  /* value */
 
 #define TAB 9
 
@@ -194,7 +197,7 @@ struct array {
 /* STACKS */
 struct proc_stack {
 	struct procedures *proc;
-	int ret_pc; /* place to jump back to in this proc after calling another */ 
+	int ret_pc; /* place to jump back to in this proc after a call */ 
 	struct proc_stack *prev,*next;
 	} *pstack_start,*pstack_ptr;
 
@@ -208,122 +211,176 @@ struct result_stack {
 	struct result_stack *prev,*next;
 	} *rstack_start,*rstack_ptr;
 
+/* Forward declaration of command functions */
+int com_alias(),com_var(),com_sharing(),com_stid(),com_maths1(),com_replace();
+int com_strings2(),com_strings3(),com_mathsv(),com_goto(),com_label();
+int com_if(),com_else(),com_endif(),com_while(),com_wend_next();
+int com_do(),com_until(),com_for(),com_foreach();
+int com_choose(),com_val_def(),com_chosen(),com_break(),com_continue();
+int com_call(),com_proc(),com_return_endproc(),com_exit_sleep();
+int com_input(),com_strings1(),com_count(),com_arrsize(),com_trap();
+int com_streams(),com_open(),com_close_delete(),com_seek(),com_dir();
+int com_format(),com_spawn(),com_wait(),com_waitpid(),com_eprk(),com_exec();
+int com_onint(),com_interrupt(),com_timer(),com_ei_di(),com_gettime();
+int com_colour(),com_connect(),com_echo();
 
-/* This order here is important as its used by exec_command() to see if a
-   command can be nested */
-char *commands[NUM_COMS]={
-	"alias",
-	"var",
-	"svar",
-	"share",
-	"unshare",
-	"set",
-	"inc",
-	"dec",
-	"not",
-	"abs",
-	"sgn",
-	"rand",
-	"mulstr",
-	"substr",
-	"addstr",
-	"add",
-	"sub",
-	"mul",
-	"div",
-	"mod",
-	"atoc",
-	"ctoa",
-	"max",
-	"min",
-	"maxstr",
-	"minstr",
-	"print",
-	"printnl",
-	"goto",
-	"label",
-	"if",
-	"else",
-	"endif",
-	"while",
-	"wend",
-	"do",
-	"until",
-	"for",
-	"next",
-	"foreach",
-	"nexteach",
-	"choose",
-	"value",
-	"default",
-	"chosen",
-	"break",
-	"continue",
-	"call",
-	"proc",
-	"endproc",
-	"return",
-	"exit",
-	"sleep",
-	"input",
-	"strlen",
-	"isnum",
-	"upperstr",
-	"lowerstr",
-	"instr",
-	"midstr",
-	"insertstr",
-	"overstr",
-	"lpadstr",
-	"rpadstr",
-	"insertelem",
-	"overelem",
-	"member",
-	"subelem",
-	"elements",
-	"count",
-	"match",
-	"unique",
-	"head",
-	"rhead",
-	"tail",
-	"rtail",
-	"arrsize",
-	"trap",
-	"in",
-	"out",
-	"block",
-	"nonblock",
-	"lock",
-	"unlock",
-	"open",
-	"close",
-	"delete",
-	"rename",
-	"copy",
-	"cseek",
-	"lseek",
-	"dir",
-	"format",
-	"crypt",
-	"spawn",
-	"wait",
-	"waitpid",
-	"exists",
-	"pcsinfo",
-	"relation",
-	"kill",
-	"exec",
-	"onint",
-	"interrupt",
-	"timer",
-	"ei",
-	"di",
-	"gettime",
-	"colour",
-	"connect",
-	"echo"
-	};
+/* Commands structure. Arg_pass is used to see which args to pass when
+   calling function pointer */
+struct {
+	char *command;
+	int arg_pass;
+	int (*func)();
+	} commands[NUM_COMS]={
+		"alias",PCA,com_alias,
+
+		"var", PCV,com_var,
+		"svar",PCV,com_var,
+
+		"share",  PCV,com_sharing,
+		"unshare",PCV,com_sharing,
+
+		"set", PCV,com_stid,
+		"tset",PCV,com_stid,
+		"inc", PCV,com_stid,
+		"dec", PCV,com_stid,
+
+		"not", PCV,com_maths1,
+		"abs", PCV,com_maths1,
+		"sgn", PCV,com_maths1,
+		"rand",PCV,com_maths1,
+
+		"mulstr",  PCV,com_strings2,
+		"substr",  PCV,com_strings3,
+		"addstr",  PCV,com_mathsv,
+		"add",     PCV,com_mathsv,
+		"sub",     PCV,com_mathsv,
+		"mul",     PCV,com_mathsv,
+		"div",     PCV,com_mathsv,
+		"mod",     PCV,com_mathsv,
+		"atoc",    PCV,com_mathsv,
+		"ctoa",    PCV,com_mathsv,
+		"max",     PCV,com_mathsv,
+		"min",     PCV,com_mathsv,
+		"maxstr",  PCV,com_mathsv,
+		"minstr",  PCV,com_mathsv,
+		"print",   PCV,com_mathsv,
+		"printnl", PCV,com_mathsv,
+		"printlog",PCV,com_mathsv,
+
+		"goto", PCA,com_goto,
+		"label",PCA,com_label,
+
+		"if",   PCA,com_if,
+		"else", PCA,com_else,
+		"endif",PCA,com_endif,
+
+		"while",   PCA,com_while,
+		"wend",    PCA,com_wend_next,
+		"do",      PCV,com_do,
+		"until",   PCA,com_until,
+		"for",     PCA,com_for,
+		"next",    PCA,com_wend_next,
+		"foreach", PCA,com_foreach,
+		"nexteach",PCA,com_wend_next,
+
+		"choose", PCA,com_choose,
+		"value",  PCA,com_val_def,
+		"default",PCA,com_val_def,
+		"chosen", PCA,com_chosen,
+
+		"break",   PCA,com_break,
+		"continue",PCA,com_continue,
+
+		"call",   PCA,com_call,
+		"vcall",  PCA,com_call,
+		"proc",   PCA,com_proc,
+		"endproc",PCA,com_return_endproc,
+		"return", PCA,com_return_endproc,
+		"exit",   PCV,com_exit_sleep,
+
+		"sleep",PCV,com_exit_sleep,
+
+		"input",PCV,com_input,
+
+		"strlen",  PCV,com_strings1,
+		"isnum",   PCV,com_strings1,
+		"upperstr",PCV,com_strings1,
+		"lowerstr",PCV,com_strings1,
+
+		"replstr",   PCV,com_replace,
+		"replelem",  PCV,com_replace,
+
+		"instr",     PCV,com_strings3,
+		"midstr",    PCV,com_strings3,
+		"insertstr", PCV,com_strings3,
+		"overstr",   PCV,com_strings3,
+		"lpadstr",   PCV,com_strings3,
+		"rpadstr",   PCV,com_strings3,
+		"insertelem",PCV,com_strings3,
+		"overelem",  PCV,com_strings3,
+		"member",    PCV,com_strings3,
+		"subelem",   PCV,com_strings3,
+		"elements",  PCV,com_strings3,
+
+		"count",PCV,com_count,
+
+		"match"  ,PCV,com_strings2,
+		"unmatch",PCV,com_strings2,
+
+		"unique",PCV,com_strings1,
+		"head",  PCV,com_strings1,
+		"rhead", PCV,com_strings1,
+		"tail",  PCV,com_strings1,
+		"rtail", PCV,com_strings1,
+
+		"arrsize",PCV,com_arrsize,
+
+		"trap",PCV,com_trap,
+
+		"in",      PCV,com_streams,
+		"out",     PCV,com_streams,
+		"block",   PCV,com_streams,
+		"nonblock",PCV,com_streams,
+		"lock",    PCV,com_streams,
+		"unlock",  PCV,com_streams,
+
+		"open",  PCV,com_open,
+		"close", PCV,com_close_delete,
+		"delete",PCV,com_close_delete,
+		"rename",PCV,com_strings2,
+		"copy",  PCV,com_strings2,
+		"cseek", PCV,com_seek,
+		"lseek", PCV,com_seek,
+		"dir",   PCV,com_dir,
+
+		"format",PCV,com_format,
+
+		"crypt",PCV,com_strings2,
+
+		"spawn",   PCV,com_spawn,
+		"wait",    PCV,com_wait,
+		"waitpid", PCV,com_waitpid,
+		"exists",  PCV,com_eprk,
+		"pcsinfo", PCV,com_eprk,
+		"relation",PCV,com_eprk,
+		"kill",    PCV,com_eprk,
+		"exec",    PCV,com_exec,
+		"iexec",   PCV,com_exec,
+
+		"onint",    PCV,com_onint,
+		"interrupt",PCV,com_interrupt,
+		"timer",    PCV,com_timer,
+		"ei",       PCV,com_ei_di,
+		"di",       PCV,com_ei_di,
+
+		"gettime",PCV,com_gettime,
+
+		"colour",PCV,com_colour,
+
+		"connect",PCV,com_connect,
+
+		"echo",PCV,com_echo
+		};
 
 enum command_vals {
 	ALIAS,
@@ -332,6 +389,7 @@ enum command_vals {
 	SHARE,
 	UNSHARE,
 	SET,
+	TSET,
 	INC,
 	DEC,
 	NOTCOM,
@@ -354,6 +412,7 @@ enum command_vals {
 	MINSTR,
 	PRINT,
 	PRINTNL,
+	PRINTLOG,
 	GOTO,
 	LABEL,
 	IF,
@@ -374,6 +433,7 @@ enum command_vals {
 	BREAK,
 	CONTINUE,
 	CALL,
+	VCALL,
 	PROC,
 	ENDPROC,
 	RETURN,
@@ -384,6 +444,8 @@ enum command_vals {
 	ISNUM,
 	UPPERSTR,
 	LOWERSTR,
+	REPLSTR,
+	REPLELEM,
 	INSTR,
 	MIDSTR,
 	INSERTSTR,
@@ -397,6 +459,7 @@ enum command_vals {
 	ELEMENTS,
 	COUNT,
 	MATCH,
+	UNMATCH,
 	UNIQUE,
 	HEAD,
 	RHEAD,
@@ -428,6 +491,7 @@ enum command_vals {
 	RELATION,
 	KILL,
 	EXEC,
+	IEXEC,
 	ONINT,
 	INTERRUPT,
 	TIMER,
@@ -465,7 +529,7 @@ char *error_mesg[NUM_ERRS]={
 	"Line too long",
 	"Unterminated string",
 	"Unexpected EOF",
-	"Only 1 level of file inclusion permitted",
+	"Max include file nesting level exceeded",
 	"Main procedure missing",
 	"Syntax error",
 	"Invalid argument",
@@ -510,7 +574,8 @@ char *error_mesg[NUM_ERRS]={
 	"Interrupt procedure cannot have arguments",
 	"Unknown host",
 	"Error while creating or setting socket",
-	"Connect failure"
+	"Connect failure",
+	"Cannot create terminal process if system is running as a daemon"
 	};
 
 
@@ -523,7 +588,7 @@ enum error_codes {
 	ERR_LINE_TOO_LONG,
 	ERR_UNTERMINATED_STRING,
 	ERR_UNEXPECTED_EOF,
-	ERR_INCLUDE_LIMIT,
+	ERR_MAX_INCLUDE,
 	ERR_MAIN_PROC_MISSING,
 	ERR_SYNTAX,
 	ERR_INVALID_ARGUMENT,
@@ -568,7 +633,8 @@ enum error_codes {
 	ERR_INT_PROC_ARGS,
 	ERR_UNKNOWN_HOST,
 	ERR_SOCKET,
-	ERR_CONNECT
+	ERR_CONNECT,
+	ERR_SYS_IS_DAEMON
 	};
 
 char *colcode[NUM_COLS]={
@@ -601,9 +667,10 @@ int num_words;
 int be_daemon,max_processes,max_mesgs,max_errors,exit_remain,swapout_after;
 int process_count,memory_reserve,eval_result,real_line,inst_cnt;
 int colour_def,kill_any,child_die,ignore_sigterm,wait_on_dint;
-int pause_on_sigtstp,consock,conalarm_called,connect_timeout,allow_ur_path;
+int pause_on_sigtstp,consock,conalarm_called,connect_timeout;
+int allow_ur_path,tuning_delay;
 
-time_t sysboot;
+time_t boottime;
 
 char *syslog_file,*init_file;
 char text[ARR_SIZE+1],text2[ARR_SIZE+1];

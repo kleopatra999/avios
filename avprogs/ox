@@ -22,13 +22,13 @@ while 1
 	set pcnt 0
 	set cwon 0
 	set pwon 0
-	print [format "\n\n~BM-=-=-=- Noughts & Crosses -=-=-=-\n\n"]
+	print [format "\n\n~BM-=-=-=*{ Noughts & Crosses }*=-=-=-\n\n"]
 
 	# Computer goes first depending on rand
-	if [rand 1]=1
-		printnl "I'll start..."
+	if [rand 1]
+		printnl "~FGI'll start..."
 		set board#5 "X";  inc pcnt
-	else; printnl "You start..."; endif
+	else; printnl "~FTYou start..."; endif
 
 	# Mainloop
 	call display_board
@@ -53,6 +53,7 @@ proc display_board
 var h i j el
 
 printnl
+
 # Go through positions
 for h 1 to 7 step 3
 	# Go through pieces array
@@ -90,6 +91,7 @@ while 1
 	endif
 	break;
 wend
+
 set board#pos "O"
 inc pcnt
 call display_board
@@ -192,11 +194,11 @@ endproc
 proc end_game
 var inp
 
-if pwon; print [format "\n~OL~LI*** YOU WIN ***\n\n"]
+if pwon; print [format "\n~FT~LI*** YOU WIN ***\n\n"]
 else
-	if cwon; print [format "\n~OL~LI*** I WIN ***\n\n"]
+	if cwon; print [format "\n~FG~LI*** I WIN ***\n\n"]
 	else
-		if pcnt=9; print [format "\n*** GAME DRAWN ***\n\n"]
+		if pcnt=9; print [format "\n~FY*** GAME DRAWN ***\n\n"]
 		else; return 0;
 		endif
 	endif
@@ -204,6 +206,6 @@ endif
 print "Would you like another game? (y/n): "
 input inp
 if inp="y" or inp="Y"; return 1; endif
-print [format "\nOk, goodbye then...\n\n"]
+print [format "\n~LIOk, goodbye then...\n\n"]
 exit 0
 endproc

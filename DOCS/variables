@@ -125,6 +125,10 @@ A variable can be unshared using the unshare command. Remember that only
 global variables can be shared as local variables are destroyed once the
 procedure they are in has exited.
 
+Use useful command to use with shared variables is the tset command which
+provides an atomic test and set operation allowing shared variables to be
+safely used as semaphores between processes.
+
 
 
 SYSTEM VARIABLES
@@ -162,6 +166,14 @@ Process specific ones:
 
    $rport - Current remote port the client the user is connecting to us with is
             using.
+
+   $prog  - This array stores the program text of the process (not including
+            comments and empty lines). Each element of the array contains a 
+            single "word" which is the prog_word[].word string from the C 
+            structure in the source code. Appended to each element is the 
+            program line number (note: this is not the same as the file line 
+            number) which the word is on. See the virus example program to see 
+            how it can be used.
 
    $proc  - This is an array which stores the return values from procedures.
             They are referenced using the procedure name as the array index.

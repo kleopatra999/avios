@@ -1,0 +1,36 @@
+# This shows how program code can be written , parsed and run at runtime
+# all from within the system using the "iexec" command ie: no files need to 
+# be loaded. A more complex version of this could be used to pass processes
+# between Avios servers.
+
+&stdalias
+
+proc main argc argv
+var pid line prog err
+
+while TRUE
+	set prog ""
+	printnl
+	printnl "Enter program code, end with a '.' on a line by itself to run:"
+
+	# Get the program code. Use format to stick newline after every
+	# line input.
+	input line
+	if line="quit"; exit 0; endif
+	while line!="."
+		set prog [addstr prog [format "\n"] line]	
+		input line
+	wend
+
+	# This will only trap parse errors , not runtime errors
+	if [set err [trap [iexec pid prog "RP2_PROG"]]]!=OK
+		printnl "ERROR: " $error#err;  continue
+	endif
+
+	printnl "Exec'd process: " pid
+	printnl "-------------------------------------------------------------------------------"
+	# Loop until process exits
+	while [exists pid]; wend
+	printnl "-------------------------------------------------------------------------------"
+wend
+endproc

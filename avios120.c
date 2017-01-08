@@ -1,11 +1,11 @@
 /****************************************************************************
-                            AVIOS version 1.0.1
-        A VIrtual Operating System, Copyright (C) Neil Robertson 1997
+                            AVIOS version 1.2.0
+         A VIrtual Operating System, Copyright (C) Neil Robertson 1997
 
-                       Version date: 17th August 1997
+                     Version date: 21st September 1997
 
  Created out of blood and sweat using incantations of the C after dusk and 
- in dark places found in London, England between January and August 1997. 
+ in dark dungeons found in London, England from January to September 1997. 
 
  Please read the README & COPYRIGHT files.
 
@@ -37,9 +37,9 @@
 #include <dirent.h>
 #include <errno.h>
 
-#include "avios101.h"
+#include "avios120.h"
 
-#define VERSION "1.0.1"
+#define VERSION "1.2.0"
 
 struct streams *get_stream();
 
@@ -50,11 +50,33 @@ main(argc,argv)
 int argc;
 char *argv[];
 {
+char defops[20];
+
 /* Go through command line args */
 parse_command_line(argc,argv);
 
+/* Set up build parameter string. Only for reference. */
+defops[0]='\0';
+#ifdef LINUX
+strcat(defops,"LINUX");
+#endif
+#ifdef FREEBSD
+if (defops[0]) strcat(defops,", ");
+strcat(defops,"FREEBSD");
+#endif
+#ifdef NO_USLEEP
+if (defops[0]) strcat(defops,", ");
+strcat(defops,"NO_USLEEP");
+#endif
+#ifdef NO_CRYPT
+if (defops[0]) strcat(defops,", ");
+strcat(defops,"NO_CRYPT");
+#endif
+if (!defops[0]) strcpy(defops,"STANDARD");
+
 /* Startup */
-printf("\n*** AVIOS version %s ***\n\nSystem booting...\n\n",VERSION);
+printf("\n*** AVIOS version %s ***\n\n",VERSION);
+printf("Build: %s\n\nSystem booting...\n\n",defops);
 if (be_daemon && syslog_file==NULL) {
 	fprintf(stderr,"ERROR: A syslog file must be specified if the system is to run as a daemon.\n");
 	exit(1);
@@ -83,7 +105,10 @@ if (be_daemon) {
 	ioctl(2,TIOCNOTTY,NULL);  
 #endif
 	}
+sprintf(text,"*** System booted with Unix PID %d ***",getpid());
+write_syslog(text);
 
+setup_signals();
 mainloop();
 }
 
@@ -99,7 +124,7 @@ time_t systime;
 int ret;
 
 systime=0;
-sysboot=time(0);
+boottime=time(0);
 
 /* The main loop itself */
 while(1) {
@@ -109,6 +134,13 @@ while(1) {
 		write_syslog("*** System halted: All processes exited. ***");  
 		exit(0);
 		}
+
+	/* Sleep if tuning_delay required */
+#ifndef NO_USLEEP
+	if (tuning_delay) usleep(tuning_delay);
+#endif
+
+	/* Set system time */
 	if (time(0)>systime) systime=time(0); 
 
 	/* Check for any connects to TCP ports */
@@ -228,10 +260,14 @@ for(i=1;i<argc;++i) {
 	if (!strcmp(argv[i],"-d")) {  be_daemon=1;  continue;  }
 	if (!strcmp(argv[i],"-v")) {  printf("%s\n",VERSION);  exit(0);  }
 	if (!strcmp(argv[i],"-h")) {
-		printf("\nAVIOS version %s\nCopyright (C) Neil Robertson 1997\n\n",VERSION); 
+		printf("\nAVIOS version %s\n",VERSION);
+		printf("Copyright (C) Neil Robertson 1997\n\n"); 
 		printf(usage,argv[0]);
-		printf("\n-i: Set the initalisation file (default is 'init').\n-s: Set the system log file (default is standard output).\n");
-		printf("-d: Run as a daemon.\n-v: Print version number.\n-h: Print this help message.\n\n");
+		printf("\n-i: Set the initalisation file (default is 'init').\n");
+		printf("-s: Set the system log file (default is standard output).\n");
+		printf("-d: Run as a daemon.\n");
+		printf("-v: Print version number.\n");
+		printf("-h: Print this help message.\n\n");
 		exit(0);
 		}
 	fprintf(stderr,usage,argv[0]);
@@ -244,25 +280,28 @@ for(i=1;i<argc;++i) {
 /*** Initialise system stuff and non process specific variables ***/
 init_system()
 {
-setup_signals();
 srand((int)time(0));
+boottime=0;
 
 /* These are initialised to defaults in case they're not set in init file */
 code_path[0]='\0';
 root_path[0]='\0';
-allow_ur_path=ALLOW_UR_PATH;
 max_processes=MAX_PROCESSES;
 max_mesgs=MAX_MESGS;
 max_errors=MAX_ERRORS;
 exit_remain=EXIT_REMAIN;
 swapout_after=SWAPOUT_AFTER;
-colour_def=COLOUR_DEF;
-ignore_sigterm=IGNORE_SIGTERM;
-kill_any=KILL_ANY;
-child_die=CHILD_DIE;
-wait_on_dint=WAIT_ON_DINT;
-pause_on_sigtstp=PAUSE_ON_SIGTSTP;
+
+colour_def=ON;
+ignore_sigterm=NO;
+kill_any=NO;
+child_die=NO;
+wait_on_dint=YES;
+pause_on_sigtstp=YES;
+allow_ur_path=YES;
+
 connect_timeout=0; /* 0 means wait for TCP timeout */
+tuning_delay=0;
 
 process_count=1;
 
@@ -355,15 +394,18 @@ while(!feof(fp)) {
 				fprintf(stderr,"INIT ERROR: PARAMETERS section header must come before PROCESSES on line %d.\n",line_num);
 				exit(-1);
 				}
-			parse_process_section(fp,line_num);  return;
+			parse_process_section(fp,line_num);  
+			return;
 			}
 		else {
-			fprintf(stderr,"INIT ERROR: Invalid section header on line %d.\n",line_num);
+			fprintf(stderr,"INIT ERROR: Invalid section header \"%s\" on line %d.\n",word,line_num);
+			fclose(fp);
 			exit(-1);
 			}
 		}
 	fgets(line,ARR_SIZE,fp);
 	}
+fclose(fp);
 fprintf(stderr,"INIT ERROR: PROCESSES section header missing.\n");
 exit(-1);
 }
@@ -376,13 +418,13 @@ FILE *fp;
 int line_num;
 {
 int i,val,yesno;
-char line[ARR_SIZE+1],w1[ARR_SIZE+1],w2[ARR_SIZE+1];
+char line[ARR_SIZE+1],w1[ARR_SIZE+1],w2[ARR_SIZE+1],*s;
 
 char *coms[]={
 "code_path","root_path","colour_def","allow_ur_path",
 "kill_any","child_die","ignore_sigterm","wait_on_dint",
 "pause_on_sigtstp","max_errors","max_mesgs","max_processes",
-"exit_remain","swapout_after","connect_timeout"
+"exit_remain","swapout_after","connect_timeout","tuning_delay"
 };
 
 fgets(line,ARR_SIZE,fp);
@@ -400,13 +442,14 @@ while(!feof(fp)) {
 		set_variable("$max_mesgs",NULL,text,1);
 		return line_num;  
 		}
+	s=w1; while(*s) {  *s=tolower(*s);  ++s;  }
 	if (!strcmp(w1,"the_ode")) the_ode();
 
 	if (!strcmp(w2,"NO")) yesno=0;
 	else if (!strcmp(w2,"YES")) yesno=1;
 		else yesno=-1;
 
-	for(i=0;i<15;++i) {
+	for(i=0;i<16;++i) {
 		if (!strcmp(coms[i],w1)) {
 			val=atoi(w2);
 
@@ -414,7 +457,7 @@ while(!feof(fp)) {
 			if (i>2 && i<9 && yesno==-1) goto ERROR;
 			if (i>8 && !isinteger(w2,0)) goto ERROR;
  			if (i>9 && i<14 && val<1) goto ERROR;
-			if (i==14 && val<0) goto ERROR;
+			if (i>=14 && val<0) goto ERROR;
 
 			switch(i) {
 				case 0: 
@@ -448,41 +491,48 @@ while(!feof(fp)) {
 				case 12: exit_remain=val;  break;
 				case 13: swapout_after=val;  break;
 				case 14: connect_timeout=val;  break;
+				case 15:
+#ifndef NO_USLEEP
+				tuning_delay=val;  break;
+#else
+				fprintf(stderr,"INIT ERROR: \"tuning_delay\" option not supported in this build on line %d.\n",line_num);
+				exit(-1);
+#endif
 				}
 			break;
 			}
 		}
-	if (i==15) {
-		fprintf(stderr,"INIT ERROR: Invalid option on line %d.\n",line_num);
+	if (i==16) {
+		fprintf(stderr,"INIT ERROR: Invalid option \"%s\" on line %d.\n",w1,line_num);
 		exit(-1);
 		}
 	fgets(line,ARR_SIZE,fp);
 	}
 ERROR:
-fprintf(stderr,"INIT ERROR: Invalid option value on line %d.\n",line_num);
+fprintf(stderr,"INIT ERROR: Invalid option value \"%s\" on line %d.\n",w2,line_num);
 exit(-1);
 }
 
 
 
+/* I wonder what this could be? */
 the_ode()
 {
 char *data="\
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\
-Ojhiu!tfuumft!vqpo!uif!topx-!uif!dpnjoh!ebsloftt!sfeffnt!uif!dpme/!B!q\
-bdl!qpoz!boe!b!usbwfmmfs!usvehf!xijuifs!uifz!nvtu!hp-!uif!Bwjpt!Gpsftu\
-!uifz!opx!ep!cfipme/!Uif!botxfs!up!ijt!mpoh!rvftu-!ju!mjft!cfijoe!uipt\
-f!ejtnbm!usfft/!Po!pbui!up!ijt!nbtufst!cfiftu!if!foufst!uif!gpsftu-!jh\
-opsjoh!uif!xijtqfst!pg!Wbmlzsjft!bt!gspn!uif!dsbxmjoh!nppotibepxt!if!g\
-ffmt!uifjs!efuftu///////!!!!!!!!!!!";
+Uif!esvjetupof!tuboet!qspve!jo!b!dmfbsjoh-!Uif!djsdmf!pg!usfft!esbxo!c\
+bdl!gspn!jut!qsftfodf/!Cfzpoe!uifjs!cpvoebsz!uif!usbwfmmfs!tufqt-!Boe!\
+gffmt!uif!ujohmf!pg!mptu!nbhjd!bu!sftu/!Uif!ijttjoh!gspn!uif!gpsftu!bs\
+pvoe!uvsot!up!tobsmt-!Gps!uif!wbmlzsjf!dboopu!foufs!xjuijo/!Uifz!bsf!i\
+fme!cbdl!cz!tqfmmt!gbs!pmefs!uibo!uifz-!Boe!jg!uifz!tipvme!foufs-!ivou\
+fs!cfdpnft!uif!qsfz/!Uif!qbdl!qpoz!qbxt!uif!hspvoe!xjui!vofbtf-!Bt!b!i\
+boe!jt!qmbdfe!vqpo!b!svof!po!uif!tupof/!Tjmfodf!efdfoet!vqpo!fwfszuijo\
+h!boe!bmm-!Gps!uif!mpoh!jemf!nbhjd!sfljoemft!jut!gmbnf/!Nbo!boe!cfbtu!\
+bmjlf!bsf!dbquvsfe!jo!uisbmm//////////!!!!!!!!!!!!!!!!";
 
 char *sptr,*cptr,*ptr;
 int spaces,i;
 
-signal(SIGINT,SIG_DFL);
-signal(SIGQUIT,SIG_DFL);
-signal(SIGTSTP,SIG_DFL);
-signal(SIGTERM,SIG_DFL);
 spaces=1;
 cptr=sptr=data;
 printf("@=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-)\n");
@@ -499,10 +549,10 @@ while(1) {
 	if (spaces) { 
 		if (*sptr=='!') ++sptr; else spaces=0;
 		}
-#ifndef NO_USLEEP
-	usleep(250000);
-#else
+#ifdef NO_USLEEP
 	sleep(1);
+#else
+	usleep(250000);
 #endif
 	}
 }
@@ -551,12 +601,17 @@ while(!feof(fp)) {
 		switch(option) {
 			case 0:
 			back=0;  port=0;
-			if (strcmp(s,"TERM")) {
-				if (!strcmp(s,"BACK")) back=1; 
-				else if ((port=atoi(s))<1 || !isinteger(s,0)) {
-						fprintf(stderr,"INIT ERROR: Invalid port on line %d.\n",line_num);
+			if (strcmp(s,"TERM") && strcmp(s,"term")) {
+				if (!strcmp(s,"BACK") || !strcmp(s,"back")) 
+					back=1; 
+				else {
+					if ((port=atoi(s))<1 || 
+					     port>65535 ||
+					     !isinteger(s,0)) {
+						fprintf(stderr,"INIT ERROR: Invalid port \"%s\" on line %d.\n",s,line_num);
 						exit(-1);
 						}
+					}
 				}
 			if (be_daemon && !port && !back) {
 				fprintf(stderr,"INIT ERROR: Cannot have terminal processes if the system is to run as a daemon on line %d.\n",line_num);
@@ -627,10 +682,10 @@ while(!feof(fp)) {
 	/* Load the actual program */
 	printf("   Loading program file \"%s\"...\n",filename);
 	real_line=-1;
-	if ((ret=process_setup(filename,argc,argv,1))!=OK) {
+	if ((ret=process_setup(filename,argc,argv,0))!=OK) {
 		if (real_line!=-1) {
 			if (incf==NULL) incf=filename;
-			fprintf(stderr,"ERROR: %s on line %d in file \"%s\" (Init line %d).\n",error_mesg[ret],real_line,incf,line_num);
+			fprintf(stderr,"ERROR: %s in file \"%s\" on line %d (Init line %d).\n",error_mesg[ret],incf,real_line,line_num);
 			}
 		else fprintf(stderr,"ERROR: %s for file \"%s\" (Init line %d).\n",error_mesg[ret],filename,line_num);
 		exit(ret);
@@ -653,9 +708,7 @@ if (process_count==1) { /* 1 cos always have system dummy process */
 	fprintf(stderr,"INIT ERROR: PROCESSES section is empty.\n");
 	exit(-1);
 	}
-printf("\nSystem booted with Unix PID %d.\n\n",getpid());
-sprintf(text,"*** All processes loaded: %d real, %d images. ***",process_count-images-1,images);
-write_syslog(text);
+printf("\nAll processes loaded: %d real, %d images.\n\n",process_count-images-1,images);
 }
 
 
@@ -704,6 +757,8 @@ switch(sig) {
 	case SIGBUS:
 	write_syslog("PANIC!: SIGBUS (bus error) occured; exiting...");
 	}
+/* If we're still booting then just exit. */
+if (!boottime) exit(-1);
 
 /* Display processes loaded. Give process id, name, status and current line 
    number being executed. "-->" shows which process system was executing when
@@ -760,15 +815,15 @@ exit(-1);
 
 
 
-/*** Set up signal catching ***/
+/*** Set up some signal handling. ***/
 setup_signals()
 {
-signal(SIGTERM,sig_handler);
-signal(SIGSEGV,sig_handler);
-signal(SIGBUS,sig_handler);
 signal(SIGINT,sig_handler);
 signal(SIGQUIT,sig_handler);
 signal(SIGTSTP,sig_handler);
+signal(SIGTERM,sig_handler);
+signal(SIGSEGV,sig_handler);
+signal(SIGBUS,sig_handler);
 
 signal(SIGILL,SIG_IGN);
 signal(SIGTRAP,SIG_IGN);
@@ -890,7 +945,8 @@ for(pt=first_port;pt!=NULL;pt=pt->next)
 
 tm.tv_sec=0;
 tm.tv_usec=0;
-select(FD_SETSIZE,&mask,0,0,&tm);
+errno=0;
+do { select(FD_SETSIZE,&mask,0,0,&tm); } while (errno==EINTR);
 
 /* Go through the list of listening ports and see if we have a new connect on
    any of them. If we do, spawn new copies of any processes attached to that 
@@ -908,14 +964,14 @@ for(pt=first_port;pt!=NULL;pt=pt->next) {
 		/* Accept connection */
 		size=sizeof(struct sockaddr_in);
 		if ((accept_sock=accept(pt->listen_sock,(struct sockaddr *)&acc_addr,&size))==-1) {
-			sprintf(text,"ERROR: Socket accept() error on port %d for process %s: %s",pt2->port,pt2->process->name,sys_errlist[errno]);
+			sprintf(text,"ERROR: Socket accept() error on port %d for process \"%s\": %s",pt2->port,pt2->process->name,sys_errlist[errno]);
 			write_syslog(text);
 			continue;
 			}
 
 		/* Set socket to non-blocking */
 		if ((fcntl(accept_sock,F_SETFL,O_NONBLOCK))==-1) {
-			sprintf(text,"ERROR: Socket fcntl() error on port %d for process %s: %s",pt2->port,pt2->process->name,sys_errlist[errno]);
+			sprintf(text,"ERROR: Socket fcntl() error on port %d for process \"%s\": %s",pt2->port,pt2->process->name,sys_errlist[errno]);
 			write_syslog(text);
 			close(accept_sock);
 			continue;
@@ -924,8 +980,8 @@ for(pt=first_port;pt!=NULL;pt=pt->next) {
 		/* Spawn all processes sharing same port */
 		for(pt2=pt;pt2!=NULL;pt2=pt2->next) {
 			if (pt2->listen_sock!=pt->listen_sock) continue;
-			if ((ret=spawn_process(pt2->process,0,0))!=OK) {
-				sprintf(text,"ERROR: Unable to spawn process %s: %s.",pt2->process->name,error_mesg[ret]); 
+			if ((ret=spawn_process(pt2->process,0,0,0))!=OK) {
+				sprintf(text,"ERROR: Unable to spawn process \"%s\": %s.",pt2->process->name,error_mesg[ret]); 
 				write_syslog(text);
 				close(accept_sock);
 				continue;
@@ -972,6 +1028,16 @@ struct process *pcs;
 
 if ((pcs=(struct process *)malloc(sizeof(struct process)))==NULL) 
 	return ERR_MALLOC;
+
+/* Disable signals temporarily 'cos we might crash if we jump to sig handler
+   and process list has dangling ->next pointer or entry data not set unless
+   the system is booting. */
+if (boottime) {
+	signal(SIGINT,SIG_IGN);
+	signal(SIGQUIT,SIG_IGN);
+	signal(SIGTSTP,SIG_IGN);
+	signal(SIGTERM,SIG_IGN);
+	}
 
 /* Update process count */
 if (pid!=1) {
@@ -1060,6 +1126,14 @@ pcs->current_outstream=NULL;
 
 pcs->created=time(0);
 
+/* Reset signals */
+if (boottime) {
+	signal(SIGINT,sig_handler);
+	signal(SIGQUIT,sig_handler);
+	signal(SIGTSTP,sig_handler);
+	signal(SIGTERM,sig_handler);
+	}
+
 return OK;
 }
 
@@ -1072,6 +1146,14 @@ struct process *pcs;
 struct process *pcs2;
 struct array *arr,*arrprev;
 char pid[10];
+
+/* Disable signals. See create_process() function as to why. */
+if (boottime) {
+	signal(SIGINT,SIG_IGN);
+	signal(SIGQUIT,SIG_IGN);
+	signal(SIGTSTP,SIG_IGN);
+	signal(SIGTERM,SIG_IGN);
+	}
 
 sprintf(pid,"%d",pcs->pid);
 
@@ -1113,6 +1195,15 @@ for(arr=current_var->arr;arr!=NULL;arr=arr->next) {
 /* Set new process count */
 process_count--;
 load_process_state(first_pcs);
+
+/* Reset signals */
+if (boottime) {
+	signal(SIGINT,sig_handler);
+	signal(SIGQUIT,sig_handler);
+	signal(SIGTSTP,sig_handler);
+	signal(SIGTERM,sig_handler);
+	}
+
 sprintf(text,"%d",process_count);
 return set_variable("$pcs_count",NULL,text,1);
 }
@@ -1124,9 +1215,9 @@ return set_variable("$pcs_count",NULL,text,1);
      that I can think of to do this. And yes I know it doesn't check every
      call for malloc errors, if the system runs out of memory then it'll
      probably crash elsewhere anyway :) ***/
-spawn_process(par,child,preserve)
+spawn_process(par,child,preserve,type)
 struct process *par;
-int child,preserve;
+int child,preserve,type;
 {
 struct process *cur,*new;
 struct procedures *proc,*newproc,*oldproc;
@@ -1153,18 +1244,32 @@ if ((ret=create_process(par->name,new_pid))!=OK) {
 	}
 new=current_pcs;
 
+/* Set some parameters according to type. Ie using current parent port,
+   terminal or background */
+switch(type) {
+	case 0:
+	set_string(&new->site,par->site);
+	new->local_port=par->local_port;
+	new->remote_port=par->remote_port;
+	break;
+
+	case 1:
+	set_string(&new->site,"<TERM>");
+	break;
+
+	case 2:
+	set_string(&new->site,"<BACK>");
+	}
+
 /* Do the simple bit copying. Some of these should not need to be copied since
    the should not be set if the process is spawning (eg sleep_to, wait_var) but
-   just in case I alter the code in the future so they could be set somehow.. */
+   just in case I alter the code in the future I won't have to worry ... */
 set_string(&new->filename,par->filename);
-set_string(&new->site,par->site);
 new->pid=new_pid;
 new->num_words=par->num_words;
 new->status=par->status;
 new->old_status=par->old_status;
 new->over=0;
-new->local_port=par->local_port;
-new->remote_port=par->remote_port;
 new->eof=par->eof;
 new->pc=par->prog_word[par->pc].end_pos+1;
 new->int_enabled=par->int_enabled;
@@ -1173,9 +1278,13 @@ new->sleep_to=par->sleep_to;
 new->wait_pid=par->wait_pid;
 new->mesg_cnt=par->mesg_cnt;
 new->timer_exp=par->timer_exp;
-if (par->mesg_q!=NULL) set_string(&new->mesg_q,par->mesg_q);
-if (par->input_buff!=NULL) set_string(&new->input_buff,par->input_buff);
-if (par->wait_var!=NULL) set_string(&new->wait_var,par->wait_var);
+new->input_vnum=par->input_vnum;
+new->colour=par->colour;
+
+if (par->mesg_q) set_string(&new->mesg_q,par->mesg_q);
+if (par->input_buff) set_string(&new->input_buff,par->input_buff);
+if (par->wait_var) set_string(&new->wait_var,par->wait_var);
+if (par->death_mesg) set_string(&new->death_mesg,par->death_mesg);
 if (child) new->parent=par;
 
 /* Now the hard parts, start with the program text */
@@ -1301,7 +1410,6 @@ new->last_loop=newloop;
 
 
 /* .. and the labels, *yawn* this is getting tedious */
-ok=0;
 oldlabel=NULL;
 newlabel=NULL;
 for(label=par->first_label;label!=NULL;label=label->next) {
@@ -1326,12 +1434,16 @@ new->last_label=newlabel;
 sprintf(pid,"%d",new_pid);
 sprintf(ppid,"%d",par->pid);
 for(st=first_stream;st!=NULL;st=st->next) {
-	if (st->owner==par && 
-	    strcmp(st->name,ppid) &&
-	    (ret=create_stream(st->name,st->filename,st->external,st->internal,st->rw,new))!=OK) 
+	if (st->owner!=par || !strcmp(st->name,ppid)) continue;
+
+	if ((ret=create_stream(st->name,st->filename,st->external,st->internal,st->rw,new))!=OK) 
 		goto ERROR;
 
 	/* Newly created stream is last on list */
+	last_stream->block=st->block;
+	last_stream->echo=st->echo;
+	last_stream->con_sock=st->con_sock;
+	last_stream->locked=st->locked;
 	if (st==par->current_instream) new->current_instream=last_stream;
 	if (st==par->current_outstream) new->current_outstream=last_stream;
 	}	
@@ -1361,6 +1473,23 @@ rstack_ptr=NULL;
 for(rs=par->rstack_start;rs!=NULL;rs=rs->next) push_rstack(rs->value);
 new->rstack_start=rstack_start;
 new->rstack_ptr=rstack_ptr;
+
+/* Set some things based on IO type. If type = 0 (ie keep connected to port
+   of parent process) keep things as they are. */
+switch(type) {
+	case 1: /* running on terminal */
+	set_variable("$lport",NULL,"0",1);
+	set_variable("$rport",NULL,"0",1);
+	get_stream("STDIN")->external=0;  
+	get_stream("STDOUT")->external=1;
+	break;
+
+	case 2:
+	set_variable("$lport",NULL,"0",1);
+	set_variable("$rport",NULL,"0",1);
+	get_stream("STDIN")->external=-1;  
+	get_stream("STDOUT")->external=-1;
+	}
 
 /* Set system process array entry */
 load_process_state(first_pcs);
@@ -1481,8 +1610,6 @@ if (all) {
 	pcs->first_label=first_label;
 	pcs->last_label=last_label;
 	}
-
-return OK;
 }
 
 
@@ -1524,7 +1651,6 @@ current_instream=pcs->current_instream;
 current_outstream=pcs->current_outstream;
 
 current_pcs=pcs;
-return OK;
 }
 
 
@@ -1762,26 +1888,22 @@ destroy_process(pcs);
 
 
 
-/*** Get a process id for a new process. This may seem a bit overkill and 
-     you're probably wondering why I don't just add 1 to the last pid. Well
-     what happens when the number finally wraps round? OK it'll take a 
-     long long time but this keeps the pid values low anyway as any old
-     ones will be reused. ***/
+/*** Get a process id for a new process. ***/
 get_new_pid()
 {
 struct process *pcs;
 int max,pid;
-
-/* Find a free process id. Start from 2 cos system_dummy (pid 1) is always
-   present */
-for(pid=2;pid<=max_processes+1;++pid) 
-	if ((pcs=get_process(pid))==NULL) return pid;
 
 /* Find current maximum and make new_pid one beyond that. Max processes
    doesn't count the system dummy */
 max=1;
 for(pcs=first_pcs;pcs!=NULL;pcs=pcs->next) if (pcs->pid>max) max=pcs->pid;
 if (max<=max_processes) return max+1; 
+
+/* Find any free process id. Start from 2 cos system_dummy (pid 1) is always
+   present */
+for(pid=2;pid<=max_processes+1;++pid) 
+	if (get_process(pid)==NULL) return pid;
 
 /* Reached max processes */
 return -1;
@@ -1947,12 +2069,15 @@ if (current_outstream->external!=-1) {
 	   (ie as long as we're writing to STDOUT) */
 	if (current_outstream->filename==NULL && !current_outstream->con_sock) {
 		if ((ret=replace_colour_coms(str,&str2))!=OK) return ret;
+
 		/* EINTR means operation interrupted by a signal */
+		errno=0;
 		do {
 			ret=write(current_outstream->external,str2,strlen(str2));
 		   } while(ret==-1 && errno==EINTR); 
 		}
 	else {
+		errno=0;
 		do {
 			ret=write(current_outstream->external,str,strlen(str));
 		   } while(ret==-1 && errno==EINTR);
@@ -2097,13 +2222,16 @@ if (current_instream->external!=-1) {
 	tm.tv_usec=0;
 	FD_ZERO(&mask);
 	FD_SET(ex,&mask);
-	select(FD_SETSIZE,&mask,0,0,&tm);
+	errno=0;
+	do { select(FD_SETSIZE,&mask,0,0,&tm); } while(errno==EINTR);
 
 	/* See if we got anything. We read data into text buffer because 
 	   calling append_string for each character read would be horribly 
 	   slow */
 	if (FD_ISSET(ex,&mask)) {
-		gotit=1;  readit=0;
+		gotit=1;  
+		readit=0; 
+		errno=0;
 
 		/* EINTR means read returned due to a signal interrupt */
 		while((rlen=read(ex,c,1))>0 || (rlen==-1 && errno==EINTR)) {
@@ -2225,6 +2353,7 @@ if ((ex=current_instream->external)!=-1) {
 
 	/* Count lines */	
 	lines=0;
+	errno=0;
 	while((rlen=read(ex,c,1))>0 || (rlen==-1 && errno==EINTR)) {
 		if (c[0]=='\n') ++lines;
 		if (lines==offset) return push_rstack("1");
@@ -2318,7 +2447,7 @@ uptime()
 {
 int days,hours,mins,secs;
 
-secs=(int)(time(0)-sysboot);
+secs=(int)(time(0)-boottime);
 
 days=secs/86400;  secs%=86400;
 hours=secs/3600;  secs%=3600;
@@ -2416,7 +2545,7 @@ char *word;
 int i;
 
 for(i=0;i<NUM_COMS;++i)
-	if (!strcmp(commands[i],word)) return i;
+	if (!strcmp(commands[i].command,word)) return i;
 return -1;
 }
 
@@ -2533,8 +2662,8 @@ return fullpath;
  *****************************************************************************/
 
 /*** Call the load and parse routines. ***/
-process_setup(filename,argc,argv,boot)
-int argc,boot;
+process_setup(filename,argc,argv,com_num)
+int argc,com_num;
 char *filename,*argv[];
 {
 struct procedures *proc;
@@ -2542,7 +2671,7 @@ int ret;
 
 incf=NULL;
 if ((ret=init_process_globals())!=OK) return ret;
-if ((ret=load_and_first_parse(filename,boot))!=OK) return ret;
+if ((ret=load_and_first_parse(filename,com_num))!=OK) return ret;
 if ((ret=second_parse())!=OK) return ret;
 if ((ret=third_parse())!=OK) return ret;
 if ((ret=create_process_variables())!=OK) return ret;
@@ -2602,20 +2731,23 @@ return OK;
 
 
 
-/*** Load program words into prog_words structure and sort out operators. If 
-     no program file is given load from stdin ***/
-load_and_first_parse(filename,boot)
-char *filename;
-int boot;
+/*** Load program words into prog_words structure and sort out operators. 
+     This function is messy but that can't be helped. ***/
+load_and_first_parse(file_prog,com_num)
+char *file_prog;
+int com_num;
 {
-FILE *fp,*main_fp;
 char c,pathname[ARR_SIZE];
 char *opstr="[]<>!="; /* The order is VITAL! */
-int prog_line,got_word,brackets,ip,ret,main_real_line;
+int prog_line,got_word,brackets,ip,ret,ipos,i;
 int word,tpos,in_string,in_rem,whitespace;
-static char incfile[ARR_SIZE];
 
-main_fp=NULL;
+static struct {
+	FILE *fp;
+	char filename[100];
+	int real_line;
+	} incst[MAX_INCLUDE_LEVELS+1];
+
 real_line=1;
 prog_line=1;
 got_word=0;
@@ -2625,17 +2757,36 @@ in_string=0;
 in_rem=0;
 brackets=0;
 whitespace=1;
-incfile[0]='\0';
 
-sprintf(pathname,"%s%s",code_path,filename);
-if (!(fp=fopen(pathname,"r"))) {
-	real_line=-1;  return ERR_CANT_OPEN_FILE;
+/* Initialise structure */
+if (com_num!=IEXEC) strcpy(incst[0].filename,file_prog);
+else strcpy(incst[0].filename,"<INLINE>");
+incst[0].fp=NULL;
+incst[0].real_line=1;
+for(ipos=1;ipos<=MAX_INCLUDE_LEVELS;++ipos) {
+	incst[ipos].fp=NULL;
+	incst[ipos].filename[0]='\0';
+	incst[ipos].real_line=1;
 	}
-c=getc(fp);
-if (feof(fp)) {  fclose(fp);  return ERR_UNEXPECTED_EOF;  }
+ipos=0;
+
+/* Open main process file if not IEXEC */
+if (com_num!=IEXEC) {
+	sprintf(pathname,"%s%s",code_path,file_prog);
+	if (!(incst[0].fp=fopen(pathname,"r"))) {
+		real_line=-1;  return ERR_CANT_OPEN_FILE;
+		}
+	c=getc(incst[0].fp);
+	if (feof(incst[0].fp)) {  
+		fclose(incst[0].fp);  return ERR_UNEXPECTED_EOF;  
+		}
+	}
+else if (!(c=*file_prog)) return ERR_UNEXPECTED_EOF; 
 
 /* Go through file */
 while(1) {
+	incf=incst[ipos].filename;
+
 	/* If we've overun reserved mem , realloc an increased amount */
 	if (word>=memory_reserve) {
 		memory_reserve+=MEMORY_RESERVE;
@@ -2646,27 +2797,39 @@ while(1) {
 
 	/* Deal with include files */
 	if (c=='&' && whitespace && !in_rem && !in_string) {
-		if (main_fp!=NULL) {  ret=ERR_INCLUDE_LIMIT;  goto ERROR;  }
+		if (ipos==MAX_INCLUDE_LEVELS) {  
+			ret=ERR_MAX_INCLUDE;  goto ERROR;  
+			}
+		incst[ipos].real_line=real_line;
 
 		/* get filename */
 		ip=0;  
-		c=getc(fp);
-		while(!feof(fp) && c>32 && c!=';') {  
-			incfile[ip]=c;  ip++;  c=getc(fp);  
-			}
-		if (!ip) {  fclose(fp);  return ERR_SYNTAX;  }
-		incfile[ip]='\0';
+		if (com_num!=IEXEC || ipos) c=getc(incst[ipos].fp);
+		else c=*++file_prog;
 
-		main_fp=fp;
-		if (boot) printf("   > Loading include file \"%s\"...\n",incfile);
-		sprintf(pathname,"%s%s",code_path,incfile);	
-		if (!(fp=fopen(pathname,"r"))) {
-			fclose(fp);  return ERR_CANT_OPEN_FILE;
+		while(c>32 && c!=';') {
+			if ((com_num!=IEXEC || ipos) && feof(incst[ipos].fp))
+				break;
+			incst[ipos+1].filename[ip]=c;  ip++;
+			if (com_num!=IEXEC || ipos) c=getc(incst[ipos].fp);
+			else c=*++file_prog;
 			}
-		if (c=='\n') real_line++;
-		main_real_line=real_line;
+		if (!ip) {  ret=ERR_SYNTAX;  goto ERROR; }
+		incst[ipos+1].filename[ip]='\0';
+
+		++ipos;
+		if (!com_num) {
+			printf("   ");
+			for(i=0;i<ipos;++i) putchar('>');
+			printf(" Loading include file \"%s\"...\n",incst[ipos].filename);
+			}
+		sprintf(pathname,"%s%s",code_path,incst[ipos].filename);	
+		if (!(incst[ipos].fp=fopen(pathname,"r"))) {
+			ret=ERR_CANT_OPEN_FILE;  --ipos;  goto ERROR;
+			}
+		if (c=='\n') incst[ipos-1].real_line++;
 		real_line=1;
-		c=getc(fp);
+		c=getc(incst[ipos].fp);
 		continue;
 		}
 
@@ -2684,6 +2847,23 @@ while(1) {
 
 	/* Deal with char */
 	switch(c) {
+		case '\\':
+		if (com_num!=IEXEC || ipos) c=getc(incst[ipos].fp);
+		else c=*++file_prog;
+
+		if (c=='\n') {  real_line++;  goto CONT;  }
+		if (!c || ((com_num!=IEXEC || ipos) && feof(incst[ipos].fp))) {
+			ret=ERR_UNEXPECTED_EOF;  goto ERROR;
+			}
+		if (com_num!=IEXEC || ipos) ungetc(c,incst[ipos].fp);
+		else file_prog--;
+
+		whitespace=0;
+		text[tpos]='\\';
+		if (++tpos>ARR_SIZE) {  ret=ERR_LINE_TOO_LONG;  goto ERROR;  }
+		goto CONT;
+		
+		case '\0':
 		case '\n': 
 		if (in_string) {  ret=ERR_UNTERMINATED_STRING;  goto ERROR;  }
 		if (brackets)  {  ret=ERR_MISSING_BRACKET;  goto ERROR;  }
@@ -2699,17 +2879,16 @@ while(1) {
 			prog_word[word].word=NULL;
 			set_string(&prog_word[word].word,text);
 			prog_word[word].filename=NULL;
-			if (main_fp) set_string(&prog_word[word].filename,incfile);
-			else set_string(&prog_word[word].filename,filename);
+			set_string(&prog_word[word].filename,incst[ipos].filename);
 			prog_word[word].real_line=real_line;
 			prog_word[word].prog_line=prog_line;
 			prog_word[word].op_num=-1;
 			word++;
 			}
-		if (got_word && (c=='\n' || c==';')) {
+		if (got_word && (c=='\0' || c=='\n' || c==';')) {
 			prog_line++;  got_word=0;
 			}
-		if (c=='\n') real_line++;
+		if (c=='\n' || !c) real_line++;
 		tpos=0;
 		goto CONT;
 
@@ -2728,8 +2907,7 @@ while(1) {
 			prog_word[word].word=NULL;
 			set_string(&prog_word[word].word,text);
 			prog_word[word].filename=NULL;
-			if (main_fp) set_string(&prog_word[word].filename,incfile);
-			else set_string(&prog_word[word].filename,filename);
+			set_string(&prog_word[word].filename,incst[ipos].filename);
 			prog_word[word].real_line=real_line;
 			prog_word[word].prog_line=prog_line;
 			prog_word[word].op_num=-1;
@@ -2760,8 +2938,7 @@ while(1) {
 		prog_word[word].word=NULL;
 		set_string(&prog_word[word].word,text);
 		prog_word[word].filename=NULL;
-		if (main_fp) set_string(&prog_word[word].filename,incfile);
-		else set_string(&prog_word[word].filename,filename);
+		set_string(&prog_word[word].filename,incst[ipos].filename);
 		prog_word[word].real_line=real_line;
 		prog_word[word].prog_line=prog_line;
 		prog_word[word].op_num=(int)strchr(opstr,c)-(int)opstr;
@@ -2781,18 +2958,29 @@ while(1) {
 		
 	CONT:
 	got_word=1;
-	c=getc(fp);
-	if (feof(fp)) {
-		if (main_fp==NULL) break;
-		fclose(fp);  fp=main_fp;  main_fp=NULL;  
-		real_line=main_real_line;
-		incfile[0]='\0';
-		c=getc(fp);
-		if (feof(fp)) break;
+	if (com_num!=IEXEC || ipos) {
+		c=getc(incst[ipos].fp);
+		if (feof(incst[ipos].fp)) {
+			if (!ipos) break;
+			fclose(incst[ipos].fp);  
+			ipos--;
+			real_line=incst[ipos].real_line;
+			if (com_num!=IEXEC || ipos) {
+				c=getc(incst[ipos].fp);
+				if (feof(incst[ipos].fp)) break;
+				}
+			else c=*++file_prog;
+			}
+		}
+	else {
+		/* Check for \0 first so that it will have gone round loop
+		   once to make EOF of inline code */
+		if (!c) break;
+		c=*++file_prog;
 		}
 	}
 if (in_string || in_rem) {  ret=ERR_UNEXPECTED_EOF;  goto ERROR;  }
-fclose(fp);
+if (com_num!=IEXEC) fclose(incst[0].fp);
 
 /* Terminate array with dummy entry */
 prog_word[word].word=NULL;
@@ -2806,9 +2994,8 @@ num_words=word;
 return OK;
 
 ERROR:
-fclose(fp);
-if (main_fp) fclose(main_fp); 
-if (incfile[0]) incf=incfile;
+if (com_num!=IEXEC) fclose(incst[0].fp);
+for(i=1;i<=ipos;++i) fclose(incst[ipos].fp);
 return ret;
 }
 
@@ -2931,14 +3118,27 @@ return OK;
 create_process_variables()
 {
 struct procedures *proc;
-int ret,flags;
-char pid[10],port[6];
+int ret,flags,w;
+char pvar[20],pid[10],port[6];
+
+flags=READONLY | ARRAY;
+
+/* Create program code array. Each entry will have multiple elements depending
+   on what the program word consists of, but the program word line number (not 
+   the real file line number) will always be the last one. */
+if ((ret=create_variable("$prog",NULL,NULL,flags,1))!=OK) return ret;
+w=0;
+while(prog_word[w].prog_line) {
+	sprintf(pvar,"$prog:\"%d\"",w+1);
+	sprintf(text,"%s %d",prog_word[w].word,prog_word[w].prog_line);
+	if ((ret=set_variable(pvar,NULL,text,1))!=OK) return ret;
+	++w;
+	}
 
 /* Create procedure return value array and result var. $result is set after
    every procedure call but $proc stores the last returned values of each
    individual procedure for later reference so you don't have to check $result
-   after each procedure call */
-flags=READONLY | ARRAY;
+   after each procedure call. */
 if ((ret=create_variable("$proc",NULL,NULL,flags,1))!=OK) return ret;
 for(proc=first_proc;proc!=NULL;proc=proc->next) {
 	sprintf(text,"$proc:\"%s\"",proc->name); 
@@ -3001,7 +3201,7 @@ sprintf(port,"%d",current_pcs->remote_port);
 if ((ret=create_variable("$rport",NULL,NULL,READONLY,1))!=OK) return ret;
 if ((ret=set_variable("$rport",NULL,port,1))!=OK) return ret;
 
-/* Setup standard IO stuff */
+/* Setup standard IO stuff. Default to unix terminal stdin & out. */
 if ((ret=create_stream("STDIN",NULL,0,-1,READ,current_pcs))!=OK) return ret;
 if ((ret=create_stream("STDOUT",NULL,1,-1,WRITE,current_pcs))!=OK) return ret;
 
@@ -3398,15 +3598,12 @@ if (shared) {
 	if (!(var->flags & SHARED)) return ERR_VAR_NOT_SHARED;
 	}
 current_var=var;
-if ((var->flags & READONLY) && !force) return ERR_VAR_IS_READONLY; 
 
 /* If variable is reference var go back until we find variable pointed to.
    We loop here as a pass by reference could be referencing another pass by
    reference and so on */
-if (var->refvar) {
-	while(var->refvar!=NULL) var=var->refvar;
-	if ((var->flags & READONLY) && !force) return ERR_VAR_IS_READONLY;
-	}
+while(var->refvar!=NULL) var=var->refvar;
+if ((var->flags & READONLY) && !force) return ERR_VAR_IS_READONLY; 
 
 if (subscript==NULL) {
 	if (var->flags & ARRAY) return set_array_by_list(var,proc,value);
@@ -3424,6 +3621,7 @@ return set_array(var,subscript,sub_type,proc,value);
      already exists a number subscript is given to it. ***/
 set_array_by_list(var,proc,value)
 struct vars *var;
+struct procedures *proc;
 char *value;
 {
 struct array *arr,*arrnext,*arrlast;
@@ -3814,7 +4012,7 @@ int i,cnt,flags,ret;
 char *var,*str;
 
 cnt=0;
-pc=first_proc->start_pos+2;
+pc=current_proc->start_pos+2;
 prog_line=prog_word[pc-2].prog_line;
 real_line=prog_word[pc-2].real_line;
 
@@ -3825,13 +4023,13 @@ while(prog_word[pc].prog_line==prog_line) {
 
 	var=prog_word[pc].word;
 	if (*var=='@') {  var++;  flags=ARRAY;  } else flags=0;
-	if ((ret=create_variable(var,first_proc,NULL,flags,0))!=OK)
+	if ((ret=create_variable(var,current_proc,NULL,flags,0))!=OK)
 		return ret;
 
 	/* Create argc */
 	if (!cnt) {
 		sprintf(text,"%d",argc-1);
-		if ((ret=set_variable(var,first_proc,text,1))!=OK) return ret;
+		if ((ret=set_variable(var,current_proc,text,1))!=OK) return ret;
 		cnt++;  pc++;
 		continue;
 		};
@@ -3843,7 +4041,7 @@ while(prog_word[pc].prog_line==prog_line) {
 		append_string(&str,argv[i]);  append_string(&str," ");
 		}
 	if (str) str[strlen(str)-1]='\0'; /* Remove trailing space */
-	if ((ret=set_variable(var,first_proc,str,1))!=OK) return ret;
+	if ((ret=set_variable(var,current_proc,str,1))!=OK) return ret;
 	cnt++;  pc++;
 	}
 return OK;
@@ -3909,15 +4107,16 @@ switch(*w) {
 
 	case '"': 
 	if (legal==STRING_ILLEGAL) return ERR_INVALID_ARGUMENT;
-	push_rstack_qstr(w);  ++*pc;  
-	return OK;
+	++*pc;  
+	return push_rstack_qstr(w);  
 
 	default:
 	if (isinteger(w,1)) {
 		if (legal==INT_ILLEGAL) return ERR_INVALID_ARGUMENT;
-		++*pc;  return push_rstack(w);
+		++*pc;  
+		return push_rstack(w);
 		}
-	else if ((ret=get_variable(w,current_proc))!=OK)  return ret;
+	if ((ret=get_variable(w,current_proc))!=OK)  return ret;
 	++*pc;
 	}
 if (legal==STRING_ILLEGAL && !isinteger(rstack_ptr->value,1))
@@ -3935,12 +4134,13 @@ int len;
 
 str++;  
 len=strlen(str)-1;  
-if (!len) push_rstack(NULL);
+if (!len) return push_rstack(NULL);
 else {
 	str[len]='\0';		
 	push_rstack(str);
 	str[len]='"'; 
 	}
+return OK;
 }
 
 
@@ -4188,6 +4388,7 @@ if (setup_globals) pc=0; else in_proc=1;
 while(1) {
 	real_line=prog_word[pc].real_line;
 	com_num=prog_word[pc].com_num;
+	incf=prog_word[pc].filename;
 
 	if (com_num==PROC) in_proc=1;
 	else if (com_num==ENDPROC) in_proc=0;
@@ -4217,7 +4418,7 @@ while(1) {
 			break;  
 
 	    		case SET: 
-			if ((ret=com_sid(SET,pc))!=OK) return ret;
+			if ((ret=com_stid(SET,pc))!=OK) return ret;
 			pc=prog_word[pc].end_pos+1;
 			break;  
 
@@ -4326,7 +4527,7 @@ real_line=prog_word[*pc].real_line;
 if (com_num==-1) {  ret=ERR_SYNTAX;  goto END;  }
 
 /* Check for invalid nesting. This relies on the command enum ordering being
-   in a certain way. This looks a mess. Tough. */
+   in a certain way. It also looks a mess. Tough. */
 if (nest_level &&
     (com_num<=UNSHARE || 
      com_num==ONINT ||
@@ -4335,150 +4536,12 @@ if (nest_level &&
 	ret=ERR_NESTED_COMMAND;  goto END;
 	}
 
-/* Main execution part */
-ret=OK;
-switch(com_num) {
-	case ALIAS: break;
-
-    	case VAR : 
-	case SVAR: ret=com_var(com_num,*pc);  break;
-
-	case SHARE  :
-	case UNSHARE: ret=com_sharing(com_num,*pc);  break;
-
-    	case SET   : 
-	case INC   :
-	case DEC   : ret=com_sid(com_num,*pc);  break;
-
-	case NOTCOM:
-	case ABS   :
-	case SGN   : 
-	case RAND  : ret=com_maths1(com_num,*pc);  break;
-
-	case MULSTR: ret=com_strings2(com_num,*pc);  break;
-	case SUBSTR: ret=com_strings3(com_num,*pc);  break;
-    	case ADDSTR : 
-	case ADD    :
-	case SUB    :
-    	case MUL    :
-    	case DIV    : 
-	case MOD    : 
-	case ATOC   :
-	case CTOA   :
-	case MAXCOM :
-	case MINCOM : 
-	case MAXSTR :
-	case MINSTR : 
-	case PRINT  : 
-	case PRINTNL: ret=com_mathsv(com_num,*pc);  break;
-
-    	case GOTO : ret=com_goto(pc);  break;
-    	case LABEL: *pc=prog_word[*pc].end_pos+1;  break;
-
-	case IF   : ret=com_if(pc);  break;
-	case ELSE : ret=com_else(pc);  break;
-	case ENDIF: break;
-
-    	case WHILE   : ret=com_while(pc);  break;
-    	case WEND    : ret=com_wend_next(pc);  break;
-	case DO      : ret=com_do(*pc);  break;
-	case UNTIL   : ret=com_until(pc);  break;
-    	case FOR     : ret=com_for(pc);  break;
-	case FOREACH : ret=com_foreach(pc);  break;
-    	case NEXT    : 
-	case NEXTEACH: ret=com_wend_next(pc);  break;
-
-	case CHOOSE : ret=com_choose(pc);  break;
-	case VALUE  : 
-	case DEFAULT: ret=com_val_def();  break;
-
-	case CHOSEN : ret=com_chosen(pc,real_line); break;
-
-    	case BREAK   : ret=com_break(pc,real_line);  break;
-    	case CONTINUE: ret=com_continue(pc,real_line);  break;
-
-	case CALL    : 
-	if (nest_level) ret=ERR_NESTED_COMMAND; else ret=com_call(pc);  
-	break;
-
-	case PROC   : break;
-    	case ENDPROC: 
-    	case RETURN : ret=com_return_endproc(com_num,pc);  break;
-
-	case EXIT   : 
-	case SLEEP  : ret=com_exit_sleep(com_num,*pc);  break;
-
-	case INPUT: ret=com_input(*pc);   break;
-
-	case STRLEN  : 
-	case ISNUM   : 
-	case UPPERSTR:
-	case LOWERSTR: ret=com_strings1(com_num,*pc);  break;
-
-	case INSTR     :
-	case MIDSTR    : 
-	case INSERTSTR : 
-	case OVERSTR   : 
-	case LPADSTR   :
-	case RPADSTR   : 
-	case INSERTELEM:
-	case OVERELEM  :
-	case MEMBER    : 
-	case SUBELEM   :
-	case ELEMENTS  : ret=com_strings3(com_num,*pc);  break;
-	case COUNT     : ret=com_count(*pc);  break;
-	case MATCH     : ret=com_strings2(com_num,*pc);  break;
-	case UNIQUE    :
-	case HEAD      :
-	case RHEAD     :
-	case TAIL      : 
-	case RTAIL     : ret=com_strings1(com_num,*pc);  break;
-
-	case ARRSIZE: ret=com_arrsize(*pc);  break;
-
-	case TRAP: ret=com_trap(*pc);  break;
-
-	case IN      :
-	case OUT     : 
-	case BLOCK   :
-	case NONBLOCK: 
-	case LOCK    :
-	case UNLOCK  : ret=com_streams(com_num,*pc);  break;
-
-	case OPEN  : ret=com_open(*pc);  break;
-	case CLOSE : 
-	case DELETE: ret=com_close_delete(com_num,*pc);  break;
-	case RENAME: 
-	case COPY  : ret=com_strings2(com_num,*pc);  break;
-	case CSEEK : 
-	case LSEEK : ret=com_seek(com_num,*pc);  break;
-	case DIRCOM: ret=com_dir(*pc);  break;
-
-	case FORMAT: ret=com_format(*pc);  break;
-
-	case CRYPT: ret=com_strings2(com_num,*pc);  break;
-
-	case SPAWN   : ret=com_spawn(*pc);  break;
-	case WAIT    : ret=com_wait(*pc);  break;
-	case WAITPID : ret=com_waitpid(*pc);  break;
-	case EXISTS  : 
-	case PCSINFO : 
-	case RELATION: 
-	case KILL    : ret=com_eprk(com_num,*pc);  break;
-	case EXEC    : ret=com_exec(*pc);  break;
-
-	case ONINT    : ret=com_onint(*pc);  break;
-	case INTERRUPT: ret=com_interrupt(*pc);  break;
-	case TIMER    : ret=com_timer(*pc);  break;
-	case EI       :
-	case DI       : ret=com_ei_di(com_num,*pc);  break;
-
-	case GETTIME: ret=com_gettime(*pc);  break;
-
-	case COLOUR: ret=com_colour(*pc);  break;
-
-	case CONNECT: ret=com_connect(*pc);  break;
-	case ECHOCOM: ret=com_echo(*pc);  break;
+/* Call command function  */
+ret=ERR_INTERNAL;
+switch(commands[com_num].arg_pass) {
+	case PCA: ret=(*commands[com_num].func)(com_num,pc);  break;
+	case PCV: ret=(*commands[com_num].func)(com_num,*pc);  break;
+	default : return ERR_INTERNAL;
 	}
 inst_cnt++;
 
@@ -4490,6 +4553,15 @@ if (--nest_level==-1) {
 	while(rstack_ptr) pop_rstack();
 	}
 return ret;
+}
+
+
+
+/*** Dummy function for "alias" ***/
+com_alias(com_num,pc)
+int com_num,*pc;
+{
+return OK;
 }
 
 
@@ -4536,77 +4608,127 @@ return OK;
 
 
 
-/*** Function for set, inc and dec commands ***/
-com_sid(com_num,pc)
-int pc;
+/*** Function for set, tset, inc and dec commands ***/
+com_stid(com_num,pc)
+int com_num,pc;
 {
-int ret,tmp,val,len,is_var;
-struct vars *newvar;
-char *var,*w;
+int pc2,ret,val,end,len,is_var,cnt,ok;
+struct vars *var,*v_old,*c_old;
+char *varname,*varval,*w,*valptr[2];
 
 is_var=0;
-len=prog_word[pc].end_pos - pc;
-if (len<1 || (com_num==SET && len<2)) return ERR_SYNTAX;
+end=prog_word[pc].end_pos;
+len=end-pc;
+
+if (len<1 || 
+    (com_num==SET && len<2) ||
+    (com_num==TSET && len<3)) return ERR_SYNTAX;
 
 current_var=NULL;
-var=prog_word[pc+1].word;
-get_variable(var,current_proc); /* Do this to set newvar */
-newvar=current_var;
+varname=prog_word[pc+1].word;
+ret=get_variable(varname,current_proc); /* Do this to set var */
+if ((var=current_var)==NULL) return ret;
+if (rstack_ptr) varval=rstack_ptr->value; else varval=NULL;
 
+cnt=0;
 if (len>1) {
-	w=prog_word[pc+2].word;
-	switch(*w) {
-		case '[': 
-		tmp=pc+3;  
-		if ((ret=exec_command(&tmp))!=OK) return ret;
-		break;
+	/* Can't use push_rstack_result here as we need to know if we getting
+	   values from an array. If we are then use copy_array to copy over
+	   its subscripts into variable being set */
+	pc2=pc+2;
+	while(pc2<=end) {
+		w=prog_word[pc2].word;
+		switch(*w) {
+			case '[': 
+			++pc2;
+			if ((ret=exec_command(&pc2))!=OK) return ret;
+			pc2=prog_word[pc2].end_pos+2;
+			break;
 
-		case '"': push_rstack_qstr(w);  break;
+			case '"': 
+			push_rstack_qstr(w);  ++pc2;  break;
 
-		default:
-		if (isinteger(w,1)) push_rstack(w);
-		else {
-			if ((ret=get_variable(w,current_proc))!=OK) return ret;
-			is_var=1;
+			default:
+			if (isinteger(w,1)) push_rstack(w);
+			else {
+				if ((ret=get_variable(w,current_proc))!=OK) 
+					return ret;
+				is_var=1;
+				}
+			++pc2;
 			}
+		valptr[cnt]=rstack_ptr->value;
+		++cnt;
 		}
 	}
 
-/* Do specific stuff */
-if (com_num==SET) {
-	/* Current_var will have been set by get_variable call above */
-	if (is_var &&
-	    newvar!=NULL &&
-	    (newvar->flags & ARRAY) && 
-	    (current_var->flags & ARRAY) &&
-	    !strcmp(newvar->name,var) && /* make sure its not an elem. */
-	    !strcmp(current_var->name,w)) {
-		if ((ret=copy_array(current_var,newvar))!=OK) return ret;
+/* Do command specific stuff */
+ok=0;
+switch(com_num) {
+	case TSET:
+	if (cnt!=2) return ERR_SYNTAX;
+	if (ret!=OK) return ret;
+	if (isnull(varval)) {
+		if (isnull(valptr[0])) ok=1; 
 		}
 	else {
-		if ((ret=set_variable(var,current_proc,rstack_ptr->value,0))!=OK) 
+		if (!isnull(valptr[0]) && !strcmp(varval,valptr[0])) ok=1;
+		}
+	if (!ok) return push_rstack("0");
+	valptr[0]=valptr[1];
+	/* Fall through to set */
+	
+
+	case SET:
+	if (com_num==SET && cnt!=1) return ERR_SYNTAX;
+	v_old=var;
+	c_old=current_var;
+
+	/* See if variables are pointers */
+	while(var->refvar!=NULL) var=var->refvar;
+	if (var->flags & READONLY) return ERR_VAR_IS_READONLY; 
+	while(current_var->refvar!=NULL) current_var=current_var->refvar;
+
+	/* If an array, use copy_array to copy over subscripts. Make sure
+	   both vars are arrays and that we are setting entire variable and
+	   not one element of it (hence strcmp tests) unless its a refvar in
+	   which case we couldn't be refering to an element anyway. */
+	if (is_var &&
+	    (var->flags & ARRAY) && 
+	    (current_var->flags & ARRAY) &&
+	    (v_old!=var || !strcmp(var->name,varname)) && 
+	    (c_old!=current_var || !strcmp(current_var->name,w))) {
+		if ((ret=copy_array(current_var,var))!=OK) return ret;
+		}
+	else {
+		if ((ret=set_variable(varname,current_proc,valptr[0],0))!=OK) 
 			return ret;
 		}
+	if (ok) return push_rstack("1");
 	return OK;
+
+
+	case INC:
+	case DEC:
+	if (ret!=OK) return ret;
+	if (cnt>1) return ERR_SYNTAX;
+	if (!isinteger(varval,1)) return ERR_INVALID_ARGUMENT;
+
+	/* If no increment or dec value given then default to 1 */
+	if (prog_word[pc].end_pos - pc == 1) val=1;
+	else {
+		if (!isinteger(valptr[0],1)) return ERR_INVALID_ARGUMENT;
+		val=atoi(valptr[0]);
+		}
+
+	/* Set variable */
+	if (com_num==INC) sprintf(text,"%d",atoi(varval)+val);
+	else sprintf(text,"%d",atoi(varval)-val);
+
+	if ((ret=set_variable(varname,current_proc,text,0))!=OK) return ret;
+	return push_rstack(text);
 	}
-
-/* INC and DEC commands */
-if ((ret=get_variable(var,current_proc))!=OK) return ret;
-if (!isinteger(rstack_ptr->value,1)) return ERR_INVALID_ARGUMENT;
-
-/* If no increment or dec value given then default to 1 */
-if (prog_word[pc].end_pos - pc == 1) val=1;
-else {
-	if (!isinteger(rstack_ptr->prev->value,1)) return ERR_INVALID_ARGUMENT;
-	val=atoi(rstack_ptr->prev->value);
-	}
-
-/* Set variable */
-if (com_num==INC) sprintf(text,"%d",atoi(rstack_ptr->value)+val);
-else sprintf(text,"%d",atoi(rstack_ptr->value)-val);
-
-if ((ret=set_variable(var,current_proc,text,0))!=OK) return ret;
-return push_rstack(text);
+return ERR_INTERNAL;
 }
 
 
@@ -4666,6 +4788,7 @@ int com_num,pc;
 {
 int pc2,ret,tmp,len,cnt,val,mesg_q;
 char *w,*result,*valptr,*mm_str,*mesg_buff;
+char *s,*s2,*log_result;
 struct streams *out;
 
 /* If output stream is a message queue check if we can write to it at the
@@ -4680,13 +4803,14 @@ if ((com_num==PRINT || com_num==PRINTNL) &&
 	set_variable("$print_ok",NULL,"0",1);
 	return OK;
 	}
-if (com_num==PRINTNL && prog_word[pc].end_pos==pc) return write_stream("\n");  
 
 len=prog_word[pc].end_pos-pc;
 if (len<2) {
-	if (com_num!=PRINT && com_num!=PRINTNL && com_num!=ATOC && com_num!=CTOA) 
-		return ERR_SYNTAX;
-	if (len<1 && com_num!=PRINT && com_num!=PRINTNL) return ERR_SYNTAX;
+	if (!len && com_num==PRINTNL) return write_stream("\n");
+	if ((com_num<PRINT || com_num>PRINTLOG) && 
+	    com_num!=ATOC && 
+	    com_num!=CTOA) return ERR_SYNTAX;
+	if (len<1 && (com_num<PRINT || com_num>PRINTLOG)) return ERR_SYNTAX;
 	}
 
 cnt=0;
@@ -4775,14 +4899,17 @@ for(pc2=pc+1;pc2<=prog_word[pc].end_pos;) {
 					set_string(&mm_str,valptr);
 			break;
 
-			case PRINT  : 
-			case PRINTNL:
+			case PRINT   : 
+			case PRINTNL :
 			if (valptr!=NULL) {
 				if (mesg_q) append_string(&mesg_buff,valptr);
 				else if ((ret=write_stream(valptr))!=OK) 
 						return ret;
 				}
 			break;
+
+			case PRINTLOG:
+			append_string(&result,valptr);  break;
 			}
 		pc2=prog_word[pc2+1].end_pos+2;
 		break;
@@ -4820,11 +4947,14 @@ for(pc2=pc+1;pc2<=prog_word[pc].end_pos;) {
 					set_string(&mm_str,w);
 			break;
 
-			case PRINT  : 
-			case PRINTNL: 
+			case PRINT   : 
+			case PRINTNL : 
 			if (mesg_q) append_string(&mesg_buff,w);
 			else if ((ret=write_stream(w))!=OK) return ret;
 			break;
+
+			case PRINTLOG:
+			append_string(&result,w);  break;
 			}
 
 		w[len]='"';   ++pc2;
@@ -4874,11 +5004,14 @@ for(pc2=pc+1;pc2<=prog_word[pc].end_pos;) {
 				else if (val>atoi(w)) val=atoi(w);
 				break;
 
-				case PRINT  : 
-				case PRINTNL: 
+				case PRINT   : 
+				case PRINTNL : 
 				if (mesg_q) append_string(&mesg_buff,w);
 				else if ((ret=write_stream(w))!=OK) return ret;
 				break;
+
+				case PRINTLOG: 
+				append_string(&result,w);  break;
 				}
 			}
 		else {
@@ -4955,14 +5088,17 @@ for(pc2=pc+1;pc2<=prog_word[pc].end_pos;) {
 						set_string(&mm_str,valptr);
 				break;
 
-				case PRINT  : 
-				case PRINTNL:
+				case PRINT   : 
+				case PRINTNL :
 				if (valptr!=NULL) {
 					if (mesg_q) append_string(&mesg_buff,valptr);
 					else if ((ret=write_stream(valptr))!=OK) 
 							return ret;
 					}
 				break;
+
+				case PRINTLOG:
+				append_string(&result,valptr);  break;
 				}
 			}
 		++pc2;
@@ -4993,6 +5129,29 @@ switch(com_num) {
 		}
 	if (com_num==PRINT) return OK;
 	return write_stream("\n");
+
+	case PRINTLOG:
+	sprintf(text,"From process %d (%s): ",current_pcs->pid,current_pcs->name);
+	set_variable("$print_ok",NULL,"1",1);
+	s=s2=result;
+	log_result=NULL;
+	while(*s) {
+		if (*s=='\n') {
+			*s='\0';
+			set_string(&log_result,text);
+			append_string(&log_result,s2);
+			write_syslog(log_result);
+			*s++='\n';  s2=s;  
+			continue;
+			}
+		++s;
+		}
+	set_string(&log_result,text);
+	append_string(&log_result,s2);
+	write_syslog(log_result);
+	FREE(result); 
+	FREE(log_result); 
+	return OK;
 	}
 /* Maths commands end up here */
 sprintf(text,"%d",val);
@@ -5002,8 +5161,8 @@ return push_rstack(text);
 
 
 /*** Function for the "goto" command ***/
-com_goto(pc)
-int *pc;
+com_goto(com_num,pc)
+int com_num,*pc;
 {
 struct labels *label;
 int ret,tmp;
@@ -5023,9 +5182,19 @@ return ERR_UNDEF_LABELNAME;
 
 
 
+/*** Function for the "label" command ***/
+com_label(com_num,pc)
+int com_num,*pc;
+{
+*pc=prog_word[*pc].end_pos+1; 
+return OK;
+}
+
+
+
 /*** Function for the "if" command ***/
-com_if(pc)
-int *pc;
+com_if(com_num,pc)
+int com_num,*pc;
 {
 int nested,ret;
 
@@ -5048,8 +5217,8 @@ return ERR_MISSING_ENDIF;
 
 
 /*** Function for the "else" command ***/
-com_else(pc)
-int *pc;
+com_else(com_num,pc)
+int com_num,*pc;
 {
 int nested;
 
@@ -5068,9 +5237,18 @@ return ERR_MISSING_ENDIF;
 
 
 
+/*** Dummy function for "endif" ***/
+com_endif(com_num,pc)
+int com_num,*pc;
+{
+return OK;
+}
+
+
+
 /*** Function for the "while" command ***/
-com_while(pc)
-int *pc;
+com_while(com_num,pc)
+int com_num,*pc;
 {
 struct loops_choose *loop;
 int ret;
@@ -5108,8 +5286,8 @@ return ERR_INTERNAL;
 
 
 /*** Function for the "wend" and "next" commands ***/
-com_wend_next(pc)
-int *pc;
+com_wend_next(com_num,pc)
+int com_num,*pc;
 {
 struct loops_choose *loop;
 
@@ -5131,8 +5309,8 @@ return OK;
 
 
 /*** Function for the "do" command ***/
-com_do(pc)
-int pc;
+com_do(com_num,pc)
+int com_num,pc;
 {
 struct loops_choose *loop;
 
@@ -5152,8 +5330,8 @@ return OK;
 
 
 /*** Function for the "until" command ***/
-com_until(pc)
-int *pc;
+com_until(com_num,pc)
+int com_num,*pc;
 {
 int ret;
 
@@ -5167,22 +5345,20 @@ return OK;
 
 
 /*** Function for the "for" command ***/
-com_for(pc)
-int *pc;
+com_for(com_num,pc)
+int com_num,*pc;
 {
 struct loops_choose *loop;
 int pc2,cnt,from,to,step;
 int new,ret,val;
-char *w,*valptr[7];
+char *w;
+char *valptr[7]= { NULL, NULL, NULL, NULL, NULL, NULL, NULL };
 
 cnt=0;
 from=0;
 to=0;
 step=0;
 new=0;
-valptr[2]=NULL;
-valptr[4]=NULL;
-valptr[6]=NULL;
 
 /* Get new loop */
 if (current_loop==NULL || current_loop->start_pos!=*pc) {
@@ -5265,8 +5441,8 @@ return OK;
 
 
 /*** Function for the "foreach" command ***/
-com_foreach(pc)
-int *pc;
+com_foreach(com_num,pc)
+int com_num,*pc;
 {
 int new,cnt,ret;
 struct loops_choose *loop;
@@ -5337,8 +5513,8 @@ return OK;
 
 
 /*** Function for the "choose" command ***/
-com_choose(pc)
-int *pc;
+com_choose(com_num,pc)
+int com_num,*pc;
 {
 struct loops_choose *loop;
 int pc2,tmp,defpos,endpos,ret,nested;
@@ -5407,7 +5583,8 @@ return ERR_INTERNAL;
 
 
 /*** Function for the "value" & "default" commands ***/
-com_val_def()
+com_val_def(com_num,pc)
+int com_num,pc;
 {
 if (current_loop==NULL || 
     current_loop->type!=CHOOSE ||
@@ -5418,8 +5595,8 @@ return OK;
 
 
 /*** Function for "chosen" command ***/
-com_chosen(pc)
-int *pc;
+com_chosen(com_num,pc)
+int com_num,*pc;
 {
 struct loops_choose *loop;
 
@@ -5444,8 +5621,8 @@ return OK;
 
 
 /*** Function for "break" command ***/
-com_break(pc)
-int *pc;
+com_break(com_num,pc)
+int com_num,*pc;
 {
 if (current_loop==NULL || current_loop->proc!=current_proc) 
 	return ERR_UNEXPECTED_COMMAND;
@@ -5462,8 +5639,8 @@ return OK;
 
 
 /*** Function for "continue" command ***/
-com_continue(pc)
-int *pc;
+com_continue(com_num,pc)
+int com_num,*pc;
 {
 if (current_loop==NULL || current_loop->proc!=current_proc) 
 	return ERR_UNEXPECTED_COMMAND;
@@ -5476,8 +5653,8 @@ return OK;
 /*** Function for "call" command. No result returned on rstack as this
      command can't be nested anyway (yet). Results of a proc are returned in 
      $proc:x array element ***/
-com_call(pc)
-int *pc;
+com_call(com_num,pc)
+int com_num,*pc;
 {
 struct procedures *proc;
 struct proc_stack *stkptr;
@@ -5488,7 +5665,14 @@ char *w,*newvar;
 
 endpos1=prog_word[*pc].end_pos;
 if (endpos1 - *pc < 1) return ERR_SYNTAX;
-w=prog_word[*pc+1].word;
+
+++*pc;
+if (com_num==CALL) {  w=prog_word[*pc].word;  ++*pc;  }
+else {
+	/* VCALL */
+	if ((ret=push_rstack_result(pc,ALL_LEGAL))!=OK) return ret;
+	w=rstack_ptr->value;
+	}
 
 /* Get proc name */
 for(proc=first_proc;proc!=NULL;proc=proc->next)
@@ -5499,7 +5683,7 @@ if (proc==NULL) return ERR_UNDEF_PROC;
 for (stkptr=pstack_start;stkptr;stkptr=stkptr->next)
 	if (stkptr->proc==proc) return ERR_RECURSION;
 
-pc1=*pc+2;
+pc1=*pc;
 pc2=proc->start_pos+2;  /* Start of receiving parameters variables */
 endpos2=prog_word[proc->start_pos].end_pos;
 new_real_line=prog_word[proc->start_pos].real_line;
@@ -5521,8 +5705,15 @@ while(1) {
 
 	/* Create and set parameter variables */
 	if (pass_by_ref) {
-		/* Reference pass , point to passed variable */
-		if (current_var==NULL) return ERR_INVALID_REF_PASS;
+		/* Reference pass , point to passed variable. Can't pass
+		   commands , variable elements or strings in this case. */
+		if (current_var==NULL || 
+		    strchr(w,':') ||
+		    strchr(w,'?') ||
+		    strchr(w,'#') ||
+		    strchr(w,'"') ||
+		    strchr(w,'[')) return ERR_INVALID_REF_PASS;
+
 		if ((ret=create_variable(newvar,proc,current_var,flags,0))!=OK) {
 			real_line=new_real_line;  return ret;
 			}
@@ -5622,6 +5813,15 @@ return OK;
 
 
 
+/*** Dummy function for "proc" ***/
+com_proc(com_num,pc)
+int com_num,*pc;
+{
+return OK;
+}
+
+
+
 /*** Function for "exit" and "sleep" commands ***/
 com_exit_sleep(com_num,pc) 
 int com_num,pc;
@@ -5652,8 +5852,8 @@ return OK;
 
 /*** Function for "input" command. All this does is set a flag and see if 
      theres any data on the input buffer waiting for it. ***/
-com_input(pc) 
-int pc;
+com_input(com_num,pc) 
+int com_num,pc;
 {
 int ret;
 
@@ -5687,7 +5887,7 @@ return OK;
 
 /*** Function for commands that just take 1 argument ***/
 com_strings1(com_num,pc) 
-int pc;
+int com_num,pc;
 {
 int ret,len,val,legal,dup;
 char *valptr,*result,*s,*s2,*e,*e2,c,c2;
@@ -5809,9 +6009,10 @@ com_strings2(com_num,pc)
 int com_num,pc;
 {
 struct streams *st;
-int pc2,cnt,num1,ret,i,legal;
+int pc2,cnt,num1,ret,i,legal,matched;
 char *valptr[2],*result,pathname1[200],pathname2[200];
 char c,c2,*s,*s2,*e,*e2;
+char *avios_crypt();
 FILE *fpold,*fpnew;
 
 if (prog_word[pc].end_pos - pc <2) return ERR_SYNTAX;
@@ -5845,6 +6046,7 @@ if (isnull(valptr[0])) {
 	}
 if (isnull(valptr[1])) {
 	if (com_num==MATCH) return push_rstack(NULL);
+	if (com_num==UNMATCH) return push_rstack(valptr[0]);
 	return ERR_INVALID_ARGUMENT;
 	}
 if (com_num==MULSTR && (num1=atoi(valptr[1]))<1) return ERR_INVALID_ARGUMENT;
@@ -5868,7 +6070,11 @@ else result=NULL;
 /* Do command specific stuff */
 switch(com_num) {
 	case CRYPT:
+#ifdef NO_CRYPT
+	set_string(&result,avios_crypt(valptr[0],valptr[1]));
+#else
 	set_string(&result,crypt(valptr[0],valptr[1]));
+#endif
 	break;
 
 	case MULSTR:
@@ -5876,6 +6082,7 @@ switch(com_num) {
 	break;
 
 	case MATCH:
+	case UNMATCH:
 	s=valptr[0];
 	while(1) {
 		/* Find beginning and end of next element in valptr[0] */
@@ -5887,6 +6094,7 @@ switch(com_num) {
 
 		/* Go through valptr[1] and compare elements */
 		s2=valptr[1];
+		matched=0;
 		while(1) {
 			while(*s2<33 && *s2) ++s2;
 			if (!*s2) break;
@@ -5896,12 +6104,19 @@ switch(com_num) {
 
 			/* compare the 2 elements */
 			if (!strcmp(s,s2)) {
-				append_string(&result,s);  
-				append_string(&result," ");
+				if (com_num==MATCH) {
+					append_string(&result,s);  
+					append_string(&result," ");
+					}
+				else matched=1;
 				*e2=c2;
 				break;
 				}
 			*e2=c2;  s2=e2;
+			}
+		if (com_num==UNMATCH && !matched) {
+			append_string(&result,s);  
+			append_string(&result," ");
 			}
 		*e=c;  s=e;
 		}
@@ -5927,6 +6142,8 @@ switch(com_num) {
 		fclose(fpold);  
 		return ERR_CANT_OPEN_FILE;
 		}
+
+	/* Copy old file into the new */
 	c=getc(fpold);
 	while(!feof(fpold)) {
 		putc(c,fpnew);  c=getc(fpold);
@@ -5942,6 +6159,147 @@ return OK;
 
 
 
+#ifdef NO_CRYPT
+/*** A simple encrypting function to be used by com_strings2() if standard 
+     unix crypt() function not available (its often missing with some FreeBSD
+     distributions). This is not as good as crypt but its better than naff all.
+     It returns a 10 char encrypted word. ***/
+char *avios_crypt(str1,str2)
+char *str1,*str2;
+{
+unsigned char c,prev;
+char *s1,*s2;
+static char output[11];
+int pos;
+
+pos=0;
+s1=str1;
+s2=str2;
+prev='\0';
+while(pos<10) {
+	c=(*s1 + *s2 + prev)%127;
+	if (c<32) c+=32;
+	prev=c;
+	output[pos]=(char)c;
+
+	if (!*(++s2)) s2=str2;
+	if (!*(++s1)) s1=str1;
+	++pos;
+	}
+output[pos]='\0';
+return output;
+}
+#endif
+
+
+
+
+/*** Funtion for the "replstr" and "replelem" commands which can take 3 or 
+     optionally 4 arguments ***/
+com_replace(com_num,pc)
+int com_num,pc;
+{
+char *valptr[4]={ NULL, NULL, NULL, NULL };
+char *s,*s2,*result,c,d[2];
+int cnt,end,ret,len0,len1,pos;
+
+cnt=0;
+end=prog_word[pc].end_pos;
+++pc;
+
+while(pc<=end) {
+	if (cnt>3) return ERR_SYNTAX;
+	if (cnt>2) ret=push_rstack_result(&pc,STRING_ILLEGAL);
+	else ret=push_rstack_result(&pc,INT_ILLEGAL);
+	if (ret!=OK) return ret;
+
+	valptr[cnt]=rstack_ptr->value;
+	++cnt;
+	}
+if (cnt<3) return ERR_SYNTAX;
+
+/* Valptr 0 = string we're working on , 1 = from string , 2 = to string , 
+   3 = pos to start from */
+if (isnull(valptr[0])) return push_rstack(NULL);
+if (isnull(valptr[1])) return push_rstack(valptr[0]);
+
+if (cnt==4) {
+	if ((pos=atoi(valptr[3]))<1) return ERR_INVALID_ARGUMENT;
+	}
+else pos=1;
+
+result=NULL;
+
+if (com_num==REPLELEM) {
+	cnt=0;
+	s=s2=valptr[0];
+
+	/* Go through input list */
+	while(*s2) {
+		while(*s<33 && *s) ++s; /* Find start of element */
+		s2=s;  cnt++;
+		while(*s2>32) ++s2; /* Find end of element */
+
+		c=*s2;  *s2='\0';
+		if (cnt>=pos) {
+			if (!strcmp(valptr[1],s)) 
+				append_string(&result,valptr[2]);
+			else append_string(&result,s);
+			}
+		else append_string(&result,s);
+		append_string(&result," ");
+		*s2=c;  s=s2;
+		}
+
+	push_rstack(result);
+	free(result);
+	return OK;
+	}
+
+
+/* REPLSTR */
+len0=strlen(valptr[0]);
+len1=strlen(valptr[1]);
+if (--pos>len0-1) return push_rstack(valptr[0]);
+s=valptr[0]+pos;
+
+/* Add on any bits we skip to result */
+if (pos) {
+	c=*s;  *s='\0';
+	set_string(&result,valptr[0]);
+	*s=c;
+	}
+
+/* Go though string */
+while(1) {
+	s2=s+len1;
+	if (!*s || s2 > valptr[0]+len0) {
+		append_string(&result,s);
+		push_rstack(result);
+		free(result);
+		return OK;
+		}
+
+	/* See if the chars between s & s2 match valptr[1]. If they do 
+	   append valptr[2] to result. If not just append single char 
+	   and move along string. */
+	c=*s2;  *s2='\0';
+	if (!strcmp(s,valptr[1])) {
+		append_string(&result,valptr[2]);
+		s=s2; 
+		}
+	else {
+		d[0]=*s;  d[1]='\0';
+		append_string(&result,d);
+		++s;
+		}
+	*s2=c;
+	}
+}
+
+
+
+
 /*** Function for substr, instr, midstr, insertstr, overstr, rpadstr, lpadstr, 
      insertelem, overelem, subelem, elements & member commands. They all take 
      3 arguments though for some commands the 3rd argument is optional ***/
@@ -5949,14 +6307,12 @@ com_strings3(com_num,pc)
 int com_num,pc;
 {
 int cnt,pc2,ret,len,num1,num2;
-char c,*w,*res,*valptr[3],*result,*s,*s2;
+char c,*w,*res,*result,*s,*s2;
+char *valptr[3]= { NULL, NULL, NULL };
 
 if (prog_word[pc].end_pos - pc < 2) return ERR_SYNTAX;
 
 cnt=-1;
-valptr[0]=NULL;
-valptr[1]=NULL;
-valptr[2]=NULL;
 for(pc2=pc+1;pc2<=prog_word[pc].end_pos;) {
 	if (++cnt==3) return ERR_SYNTAX;
 
@@ -6008,8 +6364,7 @@ result=NULL;
 switch(com_num) {
 	case INSTR:
 	num2--;
-	if (isnull(valptr[0]) || isnull(valptr[1]) || num2>=len) 
-		return push_rstack("0");
+	if (!len || isnull(valptr[1]) || num2>=len) return push_rstack("0");
 	w=valptr[0]+num2;
 	if ((res=(char *)strstr(w,valptr[1]))==NULL) return push_rstack("0");
 
@@ -6019,7 +6374,7 @@ switch(com_num) {
 
 	case SUBELEM :
 	case ELEMENTS:
-	if (isnull(valptr[0])) return push_rstack(NULL);
+	if (!len) return push_rstack(NULL);
 
 	if ((num1=atoi(valptr[1]))<1) return ERR_INVALID_ARGUMENT;
 	if (valptr[2]==NULL) num2=num1;
@@ -6057,6 +6412,7 @@ switch(com_num) {
 			}
 		s=s2;
 		}
+
 	if (result) {
 		if (com_num==ELEMENTS) return push_rstack(result);
 		if (num1==1) return push_rstack(NULL);
@@ -6074,11 +6430,11 @@ switch(com_num) {
 	/* Fall through to OVERELEM */
 
 	case OVERELEM:
-	if (isnull(valptr[0])) return push_rstack(NULL);
+	if (!len) return push_rstack(NULL);
 	/* Fall through to MEMBER */
 
 	case MEMBER:
-	if (com_num==MEMBER && (isnull(valptr[0]) || isnull(valptr[1]))) 
+	if (com_num==MEMBER && (!len || isnull(valptr[1]))) 
 		return push_rstack("0");
 	s2=s=valptr[0];	
 	cnt=0;
@@ -6087,7 +6443,7 @@ switch(com_num) {
 		s2=s;  cnt++;
 		while(*s2>32) ++s2; /* Find end of element */
 
-		/* if member we're at in searched string >= start from 
+		/* if member we're at in searched string >= position 
 		   value then check it */
 		if (cnt>=num2) {
 			if (com_num!=MEMBER) {
@@ -6120,7 +6476,7 @@ switch(com_num) {
 
 
 	case SUBSTR:
-	if (isnull(valptr[0])) return push_rstack(NULL);
+	if (!len) return push_rstack(NULL);
 
 	if ((num1=atoi(valptr[1]))<1) return ERR_INVALID_ARGUMENT;
 	if (valptr[2]==NULL) num2=num1;
@@ -6140,7 +6496,7 @@ switch(com_num) {
 
 	
 	case MIDSTR:
-	if (isnull(valptr[0])) return push_rstack(NULL);
+	if (!len) return push_rstack(NULL);
 
 	if ((num1=atoi(valptr[1]))<1) return ERR_INVALID_ARGUMENT;
 	if (valptr[2]==NULL) num2=num1;
@@ -6162,7 +6518,7 @@ switch(com_num) {
 
 	case INSERTSTR:
 	case OVERSTR: 
-	if (isnull(valptr[0])) return push_rstack(NULL);
+	if (!len) return push_rstack(NULL);
 	if (isnull(valptr[1])) {  
 		set_string(&result,valptr[0]);  break;
 		}
@@ -6186,7 +6542,7 @@ switch(com_num) {
 
 
 	case LPADSTR:
-	if (isnull(valptr[1]) || num2<len) {
+	if (num2<len || isnull(valptr[1])) {
 		set_string(&result,valptr[0]);  break;
 		}
 	while(result==NULL || strlen(result)<num2-len) 
@@ -6214,8 +6570,8 @@ return OK;
 
 /*** Function for "count" command which counts the number of elements
      in a string/list ***/
-com_count(pc)
-int pc;
+com_count(com_num,pc)
+int com_num,pc;
 {
 int ret,cnt;
 char *s;
@@ -6245,8 +6601,8 @@ return push_rstack(text);
 
 
 /*** Function for "arrsize" ***/
-com_arrsize(pc)
-int pc;
+com_arrsize(com_num,pc)
+int com_num,pc;
 {
 struct vars *var;
 struct array *arr;
@@ -6279,8 +6635,8 @@ return push_rstack(text);
 
 
 /*** Function for "trap" command ***/
-com_trap(pc)
-int pc;
+com_trap(com_num,pc)
+int com_num,pc;
 {
 int pc2,ret;
 char *w;
@@ -6344,8 +6700,8 @@ return ERR_INTERNAL;
 
 
 /*** Function for open file commands ***/
-com_open(pc)
-int pc;
+com_open(com_num,pc)
+int com_num,pc;
 {
 int flags,rw,ret,fd,com;
 char *file,pathname[ARR_SIZE];
@@ -6417,7 +6773,7 @@ char *valptr,pathname[200];
 int ret,end;
 
 end=prog_word[pc].end_pos;
-if (end - pc < 1) return ERR_SYNTAX; 
+if (end==pc) return ERR_SYNTAX; 
 
 /* loop through arguments */
 for(pc=pc+1;pc<=end;) {
@@ -6472,8 +6828,8 @@ return seek_stream(com_num,whence,atoi(rstack_ptr->value));
 
 
 /*** Return a listing of the given directory ***/
-com_dir(pc)
-int pc;
+com_dir(com_num,pc)
+int com_num,pc;
 {
 DIR *dir;
 struct dirent *ds;
@@ -6527,8 +6883,8 @@ return OK;
 
 /*** Function for the format command which can convert \ escape sequences 
      (except for octal codes) and printf % format patterns. ***/
-com_format(pc)
-int pc;
+com_format(com_num,pc)
+int com_num,pc;
 {
 int ret,pc2,endpos;
 char *fptr_start,*fptr_end,*val,*s,*result,c,c2;
@@ -6632,36 +6988,50 @@ return OK;
 
 
 /*** Function for "spawn" command ***/
-com_spawn(pc)
-int pc;
+com_spawn(com_num,pc)
+int com_num,pc;
 {
-int ret,child,len;
-char pid[10],*var,*name;
-char *type[]={ "orphan","child" };
 struct process *cur;
+int ret,child,end,type;
+char pid[10],*var,*name,*s;
+char *co[]={ "orphan","child" };
+char *tb[]={ " "," terminal "," background " };
 
-if ((len=prog_word[pc].end_pos - pc)<2) return ERR_SYNTAX;
+end=prog_word[pc].end_pos;
+if (end==pc) return ERR_SYNTAX;
 
-if (!strcmp(prog_word[pc+1].word,"orphan")) child=0;
-else if (!strcmp(prog_word[pc+1].word,"child")) child=1;
-	else return ERR_SYNTAX;
+/* "term", "back", "child" and "orphan" are all optional */
+++pc;
+type=0;
+if (!strcmp(prog_word[pc].word,"term")) {  
+	if (be_daemon) return ERR_SYS_IS_DAEMON;
+	type=1;  ++pc;  
+	}
+else if (!strcmp(prog_word[pc].word,"back")) {  type=2;  ++pc;  }
+
+if (!strcmp(prog_word[pc].word,"orphan")) {  child=0;  ++pc;  }
+else if (!strcmp(prog_word[pc].word,"child")) {  child=1;  ++pc;  }
+	else child=1; /* Default to a child process */
 
 /* Check pid var exists */
-var=prog_word[pc+2].word;
+var=prog_word[pc].word;
 if ((ret=get_variable(var,current_proc))!=OK) return ret;
 
 /* See if we have an optional process name to give child */
-if (len>2) {
-	pc+=3;
+if (pc<end) {
+	++pc;
 	if ((ret=push_rstack_result(&pc,INT_ILLEGAL))!=OK) return ret;
 	if ((name=rstack_ptr->value)==NULL) return ERR_INVALID_ARGUMENT;
+
+	/* Check theres no whitespace in name */
+	s=name; while(*s) if (*s++<33) return ERR_INVALID_ARGUMENT;
 	}
 else name=current_pcs->name;
 
 /* create process */
-if ((ret=spawn_process(current_pcs,child,1))!=OK) return ret;
+if ((ret=spawn_process(current_pcs,child,1,type))!=OK) return ret;
 
-sprintf(text,"Process %d (%s) spawned %s process %d (%s).",current_pcs->pid,current_pcs->name,type[child],last_pcs->pid,name);
+sprintf(text,"Process %d (%s) spawned%s%s process %d (%s).",current_pcs->pid,current_pcs->name,tb[type],co[child],last_pcs->pid,name);
 write_syslog(text);
 	
 /* Parent process variable gets set to "child" pid , child variable
@@ -6683,8 +7053,8 @@ return set_variable(var,current_proc,pid,0);
 
 
 /*** Wait for any child process to exit ***/
-com_wait(pc)
-int pc;
+com_wait(com_num,pc)
+int com_num,pc;
 {
 int ret;
 
@@ -6703,8 +7073,8 @@ return OK;
 
 /*** Wait for a specific process to exit. If we wait on ourself then we'll 
      hang forever. ***/
-com_waitpid(pc)
-int pc;
+com_waitpid(com_num,pc)
+int com_num,pc;
 {
 int ret,pid;
 
@@ -6737,7 +7107,7 @@ char ppid[10];
 int ret,cnt,end;
 
 end=prog_word[pc].end_pos;
-if (end - pc < 1) return ERR_SYNTAX;
+if (end==pc) return ERR_SYNTAX;
 
 /* Get argument */
 ++pc;
@@ -6768,6 +7138,9 @@ switch(com_num) {
 		for(par=pcs->parent;par && par!=current_pcs;par=par->parent);
 		if (par==NULL) return ERR_CANT_KILL;
 		}	
+
+	/* If already exiting do nothing */
+	if (pcs->status==EXITING) return push_rstack(status_name[EXITING]);
 	
 	/* Return what it was doing just before we killed it */
 	push_rstack(status_name[pcs->status]);
@@ -6806,23 +7179,36 @@ return ERR_INTERNAL;
 
 
 /*** Exec another process by loading the program file ***/
-com_exec(pc)
-int pc;
+com_exec(com_num,pc)
+int com_num,pc;
 {
 struct process *cur;
-int i,pc2,argc,new_pid,ret,old_real_line,cnt;
-int in,out,child;
-char *argv[MAX_ARGC+1],pid[10],pid2[20];
-char *var,*filename,*ptr,*ptr2,c;
+int i,argc,new_pid,ret,old_real_line;
+int cnt,in,out,child,type,end;
+char *argv[MAX_ARGC+1],pid[10],pid2[20],tmp[200];
+char *var,*file_prog,*ptr,*ptr2,*s,c;
+char *co[]={ "orphan","child" };
+char *tb[]={ " "," terminal "," background " };
 
-if (prog_word[pc].end_pos - pc<3) return ERR_SYNTAX;
-if (!strcmp(prog_word[pc+1].word,"child")) child=1;
-else if (!strcmp(prog_word[pc+1].word,"orphan")) child=0;
-	else return ERR_SYNTAX;
+end=prog_word[pc].end_pos;
+if (end-pc<3) return ERR_SYNTAX;
+type=0;
+++pc;
+
+/* "term", "back", "child" & "orphan" are all optional */
+if (!strcmp(prog_word[pc].word,"term")) {  
+	if (be_daemon) return ERR_SYS_IS_DAEMON;
+	type=1;  ++pc;  
+	}
+else if (!strcmp(prog_word[pc].word,"back")) {  type=2;  ++pc;  }
+
+if (!strcmp(prog_word[pc].word,"child")) {  child=1;  ++pc;  }
+else if (!strcmp(prog_word[pc].word,"orphan")) {  child=0;  ++pc;  }
+	else child=1;
 
 /* Check var exists */
 current_var=NULL;
-var=prog_word[pc+2].word;
+var=prog_word[pc].word;
 if ((ret=get_variable(var,current_proc))!=OK) return ret;
 
 /* Get new pid */
@@ -6830,12 +7216,24 @@ if ((new_pid=get_new_pid())==-1) return ERR_MAX_PROCESSES;
 sprintf(pid,"%d",new_pid);
 
 /* Get arguments */
+++pc;
 cnt=0;
 argc=0;
-filename=NULL;
-for(pc2=pc+3;pc2<=prog_word[pc].end_pos;) {
-	if ((ret=push_rstack_result(&pc2,ALL_LEGAL))!=OK) return ret;
+file_prog=NULL;
+while(pc<=end) {
+	if ((ret=push_rstack_result(&pc,ALL_LEGAL))!=OK) return ret;
 	if (isnull(ptr=rstack_ptr->value))  break;
+
+	/* Keep first argument seperate as its either a filename or a 
+	   program string. */
+	if (++cnt==1) {
+		s=ptr; 
+		while(com_num==EXEC && *s) 
+			if (*s++<33) return ERR_INVALID_ARGUMENT;
+		file_prog=NULL;  
+		set_string(&file_prog,ptr);
+		continue;
+		}
 
 	/* Arguments string , break string up into args. Argv[0] will be
 	   process name. */
@@ -6846,16 +7244,11 @@ for(pc2=pc+3;pc2<=prog_word[pc].end_pos;) {
 		while(*ptr2>32) ++ptr2;
 		c=*ptr2;  *ptr2='\0';
 
-		if (++cnt==1) {
-			filename=NULL;  set_string(&filename,ptr);
+		if ((argv[argc]=(char *)malloc((int)(ptr2-ptr)+1))==NULL) {
+			ret=ERR_MALLOC;  goto FREEARGS;
 			}
-		else {
-			if ((argv[argc]=(char *)malloc((int)(ptr2-ptr)+1))==NULL) {
-				ret=ERR_MALLOC;  goto FREEARGS;
-				}
-			strcpy(argv[argc],ptr);
-			if (++argc>MAX_ARGC) break;
-			}
+		strcpy(argv[argc],ptr);
+		if (++argc>MAX_ARGC) break;
 		ptr=ptr2;  *ptr2=c;
 		if (!*ptr2) break;
 		}
@@ -6867,7 +7260,7 @@ in=get_stream("STDIN")->external;
 out=get_stream("STDOUT")->external;
 
 cur=current_pcs;
-save_process_state(cur,0);
+save_process_state(cur,1); /* 1 to preserve prog_word etc */
 
 /* Set system process array entry. */
 load_process_state(first_pcs);
@@ -6880,18 +7273,31 @@ if ((ret=create_process(argv[0],new_pid))!=OK)  {
 	load_process_state(cur);  goto FREEARGS;
 	}
 current_pcs->status=RUNNING;
-current_pcs->filename=filename;
+if (com_num==EXEC) set_string(&current_pcs->filename,file_prog);
+else set_string(&current_pcs->filename,"<INLINE>");
 if (child) current_pcs->parent=cur; 
 else current_pcs->parent=NULL;
 
-set_string(&current_pcs->site,cur->site);
-current_pcs->local_port=cur->local_port;
-current_pcs->remote_port=cur->remote_port;
+switch(type) {
+	case 0:  /* Run on same port as parent */
+	set_string(&current_pcs->site,cur->site);
+	current_pcs->local_port=cur->local_port;
+	current_pcs->remote_port=cur->remote_port;
+	break;
+
+	case 1: /* Run on the terminal */
+	set_string(&current_pcs->site,"<TERM>");
+	break;
+
+	case 2: /* Run in background */
+	set_string(&current_pcs->site,"<BACK>");
+	break;
+	}	
 
 /* Load program file */
 old_real_line=real_line;
 real_line=-1;
-if ((ret=process_setup(filename,argc,argv,0))!=OK) {
+if ((ret=process_setup(file_prog,argc,argv,com_num))!=OK) {
 	destroy_process(current_pcs);
 	load_process_state(cur);
 	real_line=old_real_line;
@@ -6899,10 +7305,21 @@ if ((ret=process_setup(filename,argc,argv,0))!=OK) {
 	}
 current_pcs->pc=current_proc->start_pos;
 
-/* Set STDIN, OUT & ERR to the same as exec'ing process */
-get_stream("STDIN")->external=in;
-get_stream("STDOUT")->external=out;
+/* Set STDIN & OUT to the same as exec'ing process or none if running in 
+   background. When streams are created default is to terminal so don't
+   need to set if type 1. */
+switch(type) {
+	case 0:
+	get_stream("STDIN")->external=in;  
+	get_stream("STDOUT")->external=out;
+	break;
 
+	case 2:
+	get_stream("STDIN")->external=-1;  
+	get_stream("STDOUT")->external=-1;
+	}
+
+/* Switch back to exec'ing process */
 save_process_state(current_pcs,1);
 load_process_state(cur);
 real_line=old_real_line;
@@ -6910,8 +7327,11 @@ real_line=old_real_line;
 /* Set pid var */
 set_variable(var,current_proc,pid,0);
 
-sprintf(text,"Process %d (%s) executed file \"%s\" creating process %d (%s).",cur->pid,cur->name,filename,new_pid,argv[0]);
+if (com_num==EXEC) sprintf(tmp,"file \"%s\"",file_prog);
+else strcpy(tmp,"inline code");
+sprintf(text,"Process %d (%s) executed %s creating%s%s process %d (%s).",cur->pid,cur->name,tmp,tb[type],co[child],new_pid,argv[0]);
 write_syslog(text);
+
 ret=OK;
 
 FREEARGS:
@@ -6923,8 +7343,8 @@ return ret;
 
 
 /*** Set the procedure to jump to on various types of interrupts ***/
-com_onint(pc)
-int pc;
+com_onint(com_num,pc)
+int com_num,pc;
 {
 struct procedures *proc;
 int len,type;
@@ -6968,6 +7388,7 @@ switch(len) {
 			/* Make sure no arguments with procedure */
 			if (prog_word[proc->start_pos].end_pos - proc->start_pos!=1)
 				return ERR_INT_PROC_ARGS;
+
 			switch(type) {
 				case CHILD_INT: 
 				current_pcs->c_int_proc=proc;  break;
@@ -6989,8 +7410,8 @@ return ERR_SYNTAX;
 
 
 /*** Interrupt another process ***/
-com_interrupt(pc)
-int pc;
+com_interrupt(com_num,pc)
+int com_num,pc;
 {
 struct process *ipcs,*cur;
 int pid,endpos,ret,int_type;
@@ -7064,8 +7485,8 @@ return push_rstack("1");
 
 
 /*** Set the timer interrupt ****/
-com_timer(pc)
-int pc;
+com_timer(com_num,pc)
+int com_num,pc;
 {
 int ret,cnt;
 
@@ -7113,15 +7534,15 @@ return ERR_UNDEF_PROC;
 
 
 /*** Return the time and date in various ways ***/
-com_gettime(pc)
-int pc;
+com_gettime(com_num,pc)
+int com_num,pc;
 {
 struct tm *tms; 
 time_t tm_num;
 int com,ret;
 
 char *sub_com[]={ 
-"sysboot","created","rawtime","date","usdate","revdate","time",
+"boottime","created","rawtime","date","usdate","revdate","time",
 "hour","mins","secs","wday","mday","month","year","dayname","monthname" 
 };
 char *days[]={
@@ -7150,7 +7571,7 @@ else time(&tm_num);
 tms=localtime(&tm_num);
 
 switch(com) {
-	case 0: sprintf(text,"%d",(int)sysboot);  break;
+	case 0: sprintf(text,"%d",(int)boottime);  break;
 	case 1: sprintf(text,"%d",(int)current_pcs->created);  break;
 	case 2: sprintf(text,"%d",(int)time(0));  break;
 
@@ -7186,8 +7607,8 @@ return push_rstack(text);
 
 
 /*** Set colour for the process on or off ***/
-com_colour(pc)
-int pc;
+com_colour(com_num,pc)
+int com_num,pc;
 {
 int com;
 char *w,val[2];
@@ -7222,8 +7643,8 @@ conalarm_called=1;
      connect call but I wouldn't be able to have the connect command nested
      then and I would have to write code to continually check the socket 
      status. ***/
-com_connect(pc)
-int pc;
+com_connect(com_num,pc)
+int com_num,pc;
 {
 struct sockaddr_in con_addr;
 struct hostent *hp;
@@ -7279,7 +7700,7 @@ if (connect_timeout) {
 
 /* Attempt to connect to remote host until we timeout either via the
    alarm signal or via a TCP timeout (or via a SIGTERM but sod it.. :) */
-if (connect(consock,&con_addr,sizeof(con_addr))==-1) {
+if (connect(consock,(struct sockaddr *)&con_addr,sizeof(con_addr))==-1) {
 	if (conalarm_called) sprintf(text,"Connect timed out.");
 	else {
 		sprintf(text,"Got connect() error: %s",sys_errlist[errno]);
@@ -7315,10 +7736,10 @@ return push_rstack(text);
 
 
 
-/*** Echo command which sends echo / noecho telopt codes to user client 
+/*** Echo command which sends echo/noecho telopt codes to user client 
      down a socket ***/
-com_echo(pc)
-int pc;
+com_echo(com_num,pc)
+int com_num,pc;
 {
 char *w,seq[4],val[2];
 int com;
@@ -7350,4 +7771,4 @@ sprintf(val,"%d",current_instream->echo);
 return push_rstack(val);
 }
 
-/********************* All things must come to THE END **********************/
+/********************* The End is not nigh, its here! *********************/

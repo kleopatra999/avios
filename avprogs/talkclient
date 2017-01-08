@@ -3,12 +3,11 @@
 # dumb terminal sending all the input to the server process.
 #
 
+&stdalias
+
 alias "talkserv" TALKS
-alias "talkdata/passfile" PFILE
+alias "talkdata/passfile" PASSFILE
 alias "- a newbie" NEWDESC
-alias 1 TRUE
-alias 0 FALSE
-alias 0 OK
 
 var name desc servpid
 
@@ -17,7 +16,6 @@ var name desc servpid
 proc main
 var line tmp
 
-printnl "PID: " $pid
 print [format "\n~BB~FW*** ~FGWelcome to the ~FRAVIOS~FG talker ~FW***\n\n"]
 
 ### Log them on
@@ -58,7 +56,7 @@ var pass_err
 set pass_err "\n\n\r~FYPassword must be 3 or more characters.\n\n"
 
 ### See if file exists
-if [trap [set fp [open to read PFILE]]]!=OK
+if [trap [set fp [open to read PASSFILE]]]!=OK
 	set file_exists 0
 else 
 	set file_exists 1
@@ -146,9 +144,9 @@ while 1
 
 	### Write out new login to passfile
 	if file_exists
-		close fp;  set fp [open to append PFILE]
+		close fp;  set fp [open to append PASSFILE]
 	else
-		set fp [open to write PFILE]
+		set fp [open to write PASSFILE]
 	endif	
 	out fp
 	printnl [crypt pass "NU"] " " name " " NEWDESC  

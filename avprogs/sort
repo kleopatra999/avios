@@ -5,7 +5,7 @@
 alias 1 TRUE
 
 proc main
-var @a @linearray st line pos cnt s v i
+var @a @linearray st line cnt 
 
 # Open file and set stream
 if [trap [set st [open to read "/etc/passwd"]]]
@@ -20,13 +20,8 @@ while TRUE
 	input line
 	if $eof; break; endif
 
-	# Go through individual line and replace colons with spaces
-	set pos 1
-	while TRUE
-     	set pos [instr line ":" pos]
-		if pos=0; break; endif 
-		set line [overstr line " " pos]
-	wend
+	# Replace colons with spaces
+	set line [replstr line ":" " "]
 
 	# Print result
 	set linearray:cnt line

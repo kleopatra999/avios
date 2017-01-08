@@ -1,25 +1,31 @@
 PARAMETERS:
-code_path avcode
-#root_path .
-allow_ur_path YES
-kill_any YES
-#child_die YES
-ignore_sigterm NO
-wait_on_dint YES
-pause_on_sigtstp NO
-colour_def ON
-max_processes 100
-max_mesgs 6
-#max_errors 5
-exit_remain 1
-swapout_after 10
-connect_timeout 5
+#the_ode
+code_path        avprogs
+#root_path        .
+allow_ur_path    YES
+kill_any         YES
+#child_die        YES
+#ignore_sigterm   YES
+wait_on_dint     YES
+pause_on_sigtstp YES
+colour_def       ON
+max_processes    100
+max_mesgs        6
+#max_errors       5
+#exit_remain      10
+swapout_after    10
+connect_timeout  1
+#tuning_delay     100
 
    
 PROCESSES:
-TERM pcs pcs
+TERM pcs        pcs
 4000 talkclient talkclient
-BACK talkserv talkserv
-4020 clock clock
-4030 ox noughts&crosses 
-8080 webserv webserv
+BACK talkserv   talkserv
+4010 clock      clock
+4020 ox         noughts&crosses 
+4030 runprog    runprog 
+4040 runprog2   runprog2 
+8080 webserv    webserv
+#BACK virus      virus    # This will spawn itself via runprog
+#BACK sendprog   sendprog # This will send killer to runprog
