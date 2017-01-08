@@ -1,0 +1,136 @@
+2c2
+<                            AVIOS version 1.5.2
+---
+>                            AVIOS version 1.5.3
+5c5
+<                       Version date: 23rd April 1998
+---
+>                       Version date: 4th August 1998
+8c8
+<  in dark dungeons found in London, England from January 1997 to April 1998.
+---
+>  in dark dungeons found in London, England from January 1997 to August 1998.
+45c45
+< #include "avios152.h" 
+---
+> #include "avios153.h" 
+47c47
+< #define VERSION "1.5.2"
+---
+> #define VERSION "1.5.3"
+166c166,168
+< 	if (!strcmp(argv[i],"-v")) {  printf("%s %s\n",VERSION,build);  exit(0);  }
+---
+> 	if (!strcmp(argv[i],"-v")) {  
+> 		printf("%s %s\n",VERSION,build);  exit(0);  
+> 		}
+358,364c360,378
+< char *coms[]={
+< "code_path",       "root_path",    "colour_def",    "allow_ur_path",
+< "kill_any",        "child_die",    "ignore_sigterm","wait_on_dint",
+< "pause_on_sigtstp","enhanced_dump","max_errors",    "max_mesgs",
+< "max_processes",   "exit_remain",  "swapout_after", "connect_timeout",
+< "tuning_delay",
+< };
+---
+> char *options[]={
+> 	"code_path",
+> 	"root_path", 
+> 	"colour_def",
+> 	"allow_ur_path",
+> 	"kill_any",
+> 	"child_die",
+> 	"ignore_sigterm",
+> 	"wait_on_dint",
+> 	"pause_on_sigtstp",
+> 	"enhanced_dump",
+> 	"max_errors",
+> 	"max_mesgs",
+> 	"max_processes",
+> 	"exit_remain",
+> 	"swapout_after",
+> 	"connect_timeout",
+> 	"tuning_delay",
+> 	};
+381c395,396
+< 	s=w1; while(*s) {  *s=tolower(*s);  ++s;  }
+---
+> 	s=w1; 
+> 	while(*s) {  *s=tolower(*s);  ++s;  }
+384,385c399,400
+< 	if (!strcmp(w2,"NO") || !strcmp(w2,"no")) yesno=0;
+< 	else if (!strcmp(w2,"YES") || !strcmp(w2,"yes")) yesno=1;
+---
+> 	if (!strcmp(w2,"NO") || !strcmp(w2,"no")) yesno=NO;
+> 	else if (!strcmp(w2,"YES") || !strcmp(w2,"yes")) yesno=YES;
+389c404
+< 		if (!strcmp(coms[i],w1)) {
+---
+> 		if (!strcmp(options[i],w1)) {
+804,806c819,821
+< 	pcsname[10]='\0';
+< 	if (strlen(pcs->name)>10) {
+< 		pcsname[8]='.';  pcsname[9]='.';
+---
+> 	pcsname[9]='\0';
+> 	if (strlen(pcs->name)>9) {
+> 		pcsname[7]='.';  pcsname[8]='.';
+860d874
+< signal(SIGCONT,SIG_IGN);
+6881a6896
+> 
+6886c6901,6904
+< 		++s;  c=*s;  *s='\0';  push_rstack(s2);  *s=c;  return OK;
+---
+> 		++s;  c=*s;  *s='\0';  
+> 		push_rstack(s2);  
+> 		*s=c;  
+> 		return OK;
+6887a6906
+> 
+6894a6914,6929
+> 	case TIDY:
+> 	s=valptr;
+> 	result=NULL;
+> 	while(1) {
+> 		while(*s<33 && *s) ++s; 
+> 		if (!*s) break;
+> 		s2=s;
+> 		while(*s2>32) ++s2;
+> 		c=*s2;  *s2='\0';
+> 		if (result) append_string(&result," ");
+> 		append_string(&result,s);
+> 		*s2=c;  s=s2;
+> 		}
+> 	return push_rstack(result);
+> 
+> 
+6993a7029
+> 
+7049a7086
+> 
+7068a7106
+> 
+7360,7361c7398,7401
+< 				/* Set result */
+< 				s=result;  result=NULL;  c=*s;  *s='\0';
+---
+> 				/* Remove any extra spaces & set result */
+> 				s=result;  
+> 				result=NULL;  
+> 				c=*s;  *s='\0';
+7363a7404
+> 				while(*s2<33 && *s2) ++s2; 
+7392c7433
+< 	if (!len) return push_rstack(NULL);
+---
+> 	if (!len) return push_rstack(valptr[1]);
+7480c7521
+< 	if (!len) return push_rstack(NULL);
+---
+> 	if (!len) return push_rstack(valptr[1]);
+7515c7556,7557
+< 	set_string(&result,valptr[0]);
+---
+> 	if (isnull(valptr[0])) set_string(&result,"");
+> 	else set_string(&result,valptr[0]);

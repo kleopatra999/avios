@@ -1,0 +1,22 @@
+-------------------------------------------------------------------------------
+
+tidy <list>
+
+To the list commands any string that has the same words seperated by spaces
+is the same no matter how much the spacing varies.
+
+eg: "    hello    cruel   world  " is the same as "hello cruel world".
+
+This is not true for the string commands and operators such as '='. The tidy 
+command will take a list and tidy it up so that exactly one space is between
+each word.
+
+eg:
+
+   set l1 "    hello    cruel   world  "
+   set l2 " hello    cruel        world "
+   if [tidy l1] = [tidy l2]
+      printnl "They are the same list"
+   fi
+
+-------------------------------------------------------------------------------

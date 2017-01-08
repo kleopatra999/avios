@@ -1,0 +1,13 @@
+# This will patch the old files
+
+patch avios152.c avios153.c.patch
+mv avios152.c avios153.c
+mv avios152.c.orig avios152.c
+
+patch avios152.h avios153.h.patch
+mv avios152.h avios153.h
+mv avios152.h.orig avios152.h
+
+cat extra_CHANGELOG >> CHANGELOG
+cat extra_command >> DOCS/commands
+

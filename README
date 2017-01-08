@@ -1,0 +1,13 @@
+
+This is a patch distribution. You will need to download avios152.tar.gz first
+and unpack it before you copy these files into the directory and run the 
+"runme" script. You system must have the patch command available, if not then 
+either try and download a copy or email me and I can send you the full source 
+code for Avios 1.5.3.
+
+The extra_CHANGELOG file is the new part of the CHANGELOG file that came with 
+1.5.2 and the extra_command file is info about the new "tidy" command that is 
+to be added to the DOCS/commands files.
+
+Neil Robertson, August 1998.
+

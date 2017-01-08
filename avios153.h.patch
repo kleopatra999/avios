@@ -1,0 +1,16 @@
+2c2
+<                            AVIOS 1.5.2 header file
+---
+>                            AVIOS 1.5.3 header file
+15c15
+< #define NUM_COMS 128
+---
+> #define NUM_COMS 129
+343c343
+< 		"match"  , PCV,com_strings2,
+---
+> 		"match",   PCV,com_strings2,
+351a352
+> 		"tidy",  PCV,com_strings1,
+494a496
+> 	TIDY,
