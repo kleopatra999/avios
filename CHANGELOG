@@ -118,3 +118,7 @@ Versions relased so far (and the release date in DD/MM/YY format):
  - Replaced sys_errlist array with strerror function which now means the
        code no longer needs the FREEBSD compile option.
  - Got rid of the commas in $build so can do matching more easily if required.
+
+1.5.3 (3/8/98)
+ - Added "tidy" command.
+ - Minor bug fixes.
