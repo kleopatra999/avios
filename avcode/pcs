@@ -2,21 +2,21 @@
 # bothered.
 
 proc main
-var line comlist com
+var line com
 
-set comlist "ps kill con"
 print [format "\n~BB*** AVIOS CONSOLE ***\n\n"]
 while 1
 	print ">"
 	input line
 	if line=""; continue; endif
-	set com [member comlist [head line]]
-	if [not com]
-		printnl "Unknown command";  continue;
-	endif
+	set com [head line]
 	choose com
-		value 1; call ps_proc; break
-		value 2; call kill_proc [tail line]; break;
+		value "ps"; call ps_proc; break
+		value "kill"; call kill_proc [tail line]; break;
+		value "exit"; exit 0
+
+		default
+		printnl "Unknown command"
 	chosen
 wend
 endproc
@@ -24,12 +24,13 @@ endproc
 
 
 proc ps_proc
-var pid pname cnt
+var pid pname cnt info
 
 print [format "\n~BB*** Processes at %s ***\n\n" [gettime time]]
 set cnt 0
 foreach pid pname in $pcs
-	printnl [format "~FY%-4d  ~FG%-10s  ~FT%s" pid pname [pcsinfo pid]]
+	set info [pcsinfo pid]
+	printnl [format "~FY%-4d  ~FG%-10s  ~FT%s" pid pname [elements info 2 [count info]]]
 	inc cnt
 nexteach
 printnl [format "\nTotal of %d processes.\n" cnt]

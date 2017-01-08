@@ -1,5 +1,5 @@
 /******************************************************************************
-                           AVIOS 1.0.0 header file
+                           AVIOS 1.0.1 header file
                       Copyright (C) Neil Robertson 1997
  ******************************************************************************/
 
@@ -23,6 +23,7 @@
 #define CHILD_DIE 0
 #define WAIT_ON_DINT 1
 #define ALLOW_UR_PATH 1
+#define PAUSE_ON_SIGTSTP 1
 
 /* Internal stream types. There is only 1 at the moment. */
 #define MESG_Q 0
@@ -49,6 +50,11 @@
 
 #define FREE(ptr)  if (ptr!=NULL) free(ptr)
 
+#ifdef FREEBSD
+extern const char *sys_errlist[];
+#else
+extern char *sys_errlist[];
+#endif
 
 /* Main system process structure. This stores all the structure pointers for
    a process and other bits. */
@@ -430,7 +436,7 @@ enum command_vals {
 	GETTIME,
 	COLOUR,
 	CONNECT,
-	ECHO
+	ECHOCOM
 	};
 
 
@@ -592,15 +598,14 @@ char *colcom[NUM_COLS]={
 int num_words;
 
 /* Other globals */
-int daemon,max_processes,max_mesgs,max_errors,exit_remain,swapout_after;
+int be_daemon,max_processes,max_mesgs,max_errors,exit_remain,swapout_after;
 int process_count,memory_reserve,eval_result,real_line,inst_cnt;
 int colour_def,kill_any,child_die,ignore_sigterm,wait_on_dint;
-int consock,conalarm_called,connect_timeout,allow_ur_path;
+int pause_on_sigtstp,consock,conalarm_called,connect_timeout,allow_ur_path;
 
 time_t sysboot;
 
-char *syslog,*init_file;
+char *syslog_file,*init_file;
 char text[ARR_SIZE+1],text2[ARR_SIZE+1];
 char code_path[200],root_path[200],*incf;
-extern char *sys_errlist[];
 

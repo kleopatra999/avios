@@ -33,3 +33,18 @@ All these states are very short lived so you will hardly ever see them as
 the status of a process. Read up further on the commands in the commands 
 documentation file.
 
+
+Recursion problems
+------------------
+Since recursion is not allowed in Avios problems will occur if an interrupt
+procedure is a procedure which is already somewhere on the stack.
+Eg: If an interrupt occurs whilst in procedure A and the program has been set
+    to jump to procedure A on an interrupt an error will occur when this 
+    interrupt occurs. Similarly if the interrupt jumps to procedure B which 
+    *then* calls A an error will also occur.
+To get around these problems you must use the "di on <procedure>" command 
+which disables interrupts as soon as the given procedure is called. If the
+program had "di on A" in it then no interrupt could ever occur while it was
+in procedure A so no recursion error could occur. Once it leaves the procedure
+interrupts are *automatically* reset to what they were before (ie enabled or
+still disabled).

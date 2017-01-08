@@ -7,15 +7,21 @@ code is all in one module** and all the header is just one module there is no
 makefile, you just call the compiler direct from the command line (or make
 up a short shell file) as so:
 
-Linux, OSF, SunOS5.5: cc avios100.c
+Linux: cc -DLINUX avios101.c
+
+OSF, SunOS5.5: cc avios101.c
     (For SunOS above make sure cc is a link or alias to the berkeley
      compiler which is usually /usr/ucb/cc. SunOS GCC might not work)
 
-HP-UX 10.01: cc -Ae -DNO_USLEEP avios100.c   
-HP-UX 10.20: cc -Ae avios100.c   (ditto above)
+HP-UX 10.01: cc -Ae -DNO_USLEEP avios101.c   
+HP-UX 10.20: cc -Ae avios101.c  
     (You'll need the HP-UX ANSI compiler for both of the above)
 
-AIX: cc avios100.c (maybe, I'm just guessing)
+FreeBSD: cc -DFREEBSD avios101.c  
+     (Some setups may have problems with the crypt() call. Nothing I can do
+      about this.)
+
+AIX: cc avios101.c (maybe, I'm just guessing)
 
 If you have a system that is not mentioned here and it compiles successfully
 on it please let me know what the compiler command line options are so I can
@@ -35,14 +41,15 @@ use. These are:
  -h: Print some command line option help.
 
 When Avios is running it catches a number of signals. These include control-C 
-(SIGINT) and control-Z (SIGTSTP). ^C will cause Avios to dump the current
-process status's and exit whilst ^Z will cause a status dump then a pause
-(unless running as a daemon) until you press a key upon which Avios will resume 
-execution. Because of this ^Z is a very usefull debugging tool. The other 
-signals Avios catches are SIGTERM (there is an option to ignore this in the
-initfile) , SIGSEGV and SIGBUS. The last 2 are caused by Avios crashing so
-if you see one of those two things have gone wrong and if you could also let
-me know if it does crash so I can try and trace the bug.
+(SIGINT), control-\ (SIGQUIT) and control-Z (SIGTSTP). ^C and ^\ will cause 
+Avios to dump the current process status's and exit whilst ^Z will cause a 
+status dump then a pause (unless running as a daemon or pause_on_sigtstp init 
+option is NO) until you press a key upon which Avios will resume execution. 
+Because of this ^Z is a very usefull debugging tool. The other signals Avios 
+catches are SIGTERM (there is the ignore_sigterm init file option to ignore 
+this) , SIGSEGV and SIGBUS. The last 2 are caused by Avios crashing so if you 
+see one of those two things have gone wrong and if you could also let me know 
+if it does crash so I can try and trace the bug.
 
 
 

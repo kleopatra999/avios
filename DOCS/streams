@@ -36,7 +36,7 @@ eg: var fp
 The above creates a stream called "fp" and sets its input to come from that
 stream, reads data from the file and then resets its input to point back to
 "STDIN". The below example does the same except it uses a socket stream and
-also sets its output to write to the socket aswell:
+also sets its output to write to the socket as well:
 
     var sock
     set sock [connect "localhost" 25]

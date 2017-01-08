@@ -6,15 +6,14 @@ Things that will get done:
    Commands split over multiple lines
    Support for floating point numbers.
    Extra maths commands.
-   Fix binary gif and jpeg download so allowing full blown web server.
    Bug fixing (if there are any, ahem :)
 
 
 Things that will get done eventually:
    Auto reboot of failed terminal/background processes.
    Create a central message queue for all processes.
-   Optimise code a more (eg: ditch main command switch statement and 
-                             replace with function pointers)
+   Optimise code a bit more (eg: ditch main command switch statement 
+                                 and replace with function pointers)
 
 
 An idea on the horizon: 

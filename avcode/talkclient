@@ -3,8 +3,7 @@
 # dumb terminal sending all the input to the server process.
 #
 
-alias "STDIN" STDIN
-alias "STDOUT" STDOUT
+alias "talkserv" TALKS
 alias "talkdata/passfile" PFILE
 alias "- a newbie" NEWDESC
 alias 1 TRUE
@@ -40,14 +39,11 @@ printnl "LOGON " name " " desc
 interrupt servpid with "DEAD" on death
 
 ### Main loop
-out STDOUT
 onint from nonchild intproc
 while 1
 	input line
-	out servpid
 	if [midstr line 1]="."; call commands [midstr line 2 [strlen line]]
 	else; printnl [format "SAY %s" line]; endif
-	out STDOUT
 wend
 endproc
 
@@ -75,7 +71,7 @@ while 1
 		return FALSE
 	endif
 	set wrong 0
-	in STDIN
+	in "STDIN"
         
 	do
 		print "Enter name: "; input name
@@ -86,31 +82,34 @@ while 1
 	endif
 	set name [overstr name [upperstr [midstr name 1]] 1]
 
-	# Search through password file for our logon
+	# If file exists go back to start
 	if file_exists
-		in fp
-		cseek start 0  # reset pointer to top of file
+		in fp; cseek start 0  # reset pointer to top of file
 	endif
+
+	# Search through password file for our logon
 	while file_exists and [not $eof]
 		input line
 		if [elements line 2]=name
-			in STDIN
+			in "STDIN"
 			echo off
 			do
 				print "Enter password: ";  input pass
 			until pass!=""
 			echo on
+
 			if [strlen pass]<3
 				print [format pass_err];  inc wrong;  break
 			endif
+
 			if [crypt pass "NU"]=[head line]
 				close fp
 				set desc [tail [tail line]]
 				return TRUE
 			endif	
+
 			print [format "\n\n~FRIncorrect password.\n\n"]
-			inc cnt
-			inc wrong
+			inc cnt; inc wrong
 			break;
 		endif
 		in fp
@@ -118,12 +117,13 @@ while 1
 	if wrong; continue; endif
 
 	### New user
-	in STDIN
+	in "STDIN"
 	printnl "New user..."
 	echo off
 	do
 		print "Enter password: "; input pass
 	until pass!=""
+
 	if [strlen pass]<3
 		print [format pass_err];  inc cnt;  echo on;  continue;
 	endif
@@ -132,9 +132,13 @@ while 1
 		print [format "\n\rPlease re-enter password: "];  input pass2
 	until pass2!=""
 	echo on
+
+	# Is password too short?
 	if [strlen pass2]<3
 		print [format pass_err];  inc cnt;  continue;
 	endif
+
+	# Has password been re-entered correctly?
 	if pass!=pass2
 		print [format "\n\n\r~FRPasswords do not match.\n\n"];  
 		inc cnt;  continue;
@@ -148,8 +152,9 @@ while 1
 	endif	
 	out fp
 	printnl [crypt pass "NU"] " " name " " NEWDESC  
-	out STDOUT
 	close fp
+
+	out "STDOUT"
 	set desc NEWDESC
 	return TRUE
 wend
@@ -164,7 +169,7 @@ var oldout mesg pid tl age
 if [set pid [head $int_mesg]]!=servpid; return; endif
 
 set oldout $out
-out STDOUT
+out "STDOUT"
 if [set tl [tail $int_mesg]]="EXIT"; exit 0; endif
 if tl=""; printnl
 else
@@ -185,7 +190,7 @@ endproc
 proc commands line
 
 if [instr "QUIT" [upperstr [head line]]]=1
-	out STDOUT; print [format "\n\nBye bye...\n\n"]
+	out "STDOUT"; print [format "\n\nBye bye...\n\n"]
 	exit 0
 endif
 printnl [format "COM %s" line]

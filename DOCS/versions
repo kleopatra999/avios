@@ -1,0 +1,21 @@
+
+                              *** VERSIONS ***
+
+The Avios version number consists of 3 fields. The major , minor and patch
+levels. eg: 1.0.0 , means major version 1, minor version 0 and patch level
+0. If a small bug fix or some minor change has been done to the code then
+I'll up the patch level. If new features have been added or old ones changed
+drastically then I'll up the minor version number. If however the code has had
+a complete rewrite then I'll up the major version number.
+
+Versions relased so far (and the release date):
+
+1.0.0 (11/8/97)
+
+1.0.1 (18/8/97)
+   Added pause_on_sigtstp init file option.
+   evaluate_complete_expression() now does lazy evaluation.
+   Various bug fixes and minor code changes and additions done including 
+   -DLINUX compile option.
+
+

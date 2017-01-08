@@ -10,14 +10,14 @@ other process written to it. The format of a queue is as follows:
   <line 2>                    | - One message
   :                           |
   :                         --
-  <pid of sending process>
+  <pid of sending process>  -- Start of next message
 
 As you can see the pid of the process which sent the message comes first
 followed by the message it sent. Since each line of the message including
 the pid is terminated by a newline an input from the message queue will only
 read one line at a time. So you know when you have read 1 entire message
 the variable $mesg_cnt exists which keeps a count of number of messages
-on the queue. After a message is read its deleted so the $mesg_cnt will drop
+on the queue. After a message is read it's deleted so the $mesg_cnt will drop
 by one hence if it drops after you've done an input you know you've read the
 last line of that message.
    The above scenario only works for simple systems where a process writes 

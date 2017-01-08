@@ -2,11 +2,10 @@
                          *** INCLUDE FILES ***
 
 Include files are loaded by placing &<filename> in the main process file.
-eg: &rdesc
+eg: &roomdata
 
 They may contain anything that the main file may contain including the 
 main procedure itself so long as it isn't duplicated anywhere else.
-For this release of Avios (1.0.0) only one level of include file nesting is
-permitted but I hope to be able to lift this restriction for the next 
-release.
+For this release of Avios (1.0.1) only one level of include file nesting is
+permitted but I hope to be able to lift this restriction for release 1.1.0.
 

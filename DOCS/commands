@@ -1,18 +1,18 @@
                           *** THE COMMANDS ***
 
-Here are a list of the commands that currently have been or will be implemented
-fairly soon. No doubt more will get added to the list as development progesses
-but for them meantime you'll have to work with these....
+Here are a list of the commands that currently have been implemented. More may 
+possibly get added but its unlikely.
 
 -------------------------------------------------------------------------------
 
 alias <from> <to>
 
-Alias 'from' to 'to'. This is a very simple substition in that expressions
-are not supported. One thing to note is that if an alias is used inside a
+Alias 'from' to 'to'. This is a very simple substition system (expressions
+are not supported). One thing to note is that if an alias is used inside a
 procedure then substitutions are done _only_ inside that procedure.
 
 eg: alias 1 TRUE
+    alias 0 FALSE
 
 -------------------------------------------------------------------------------
 
@@ -21,10 +21,9 @@ svar <variable list>
 
 These 2 commands are identical except that svar will cause the variables to be
 static within a procecure (ie their values are not lost when the procedure
-exits) whereas var will not. Variables can be declared as different types using
-the @ and ~. @ declares them as an array , ~ as read-only.
+exits) whereas var will not. Variables can be declared as an array using '@'.
 
-eg: var tom @dick ~@harry ~fred
+eg: var tom @dick 
 
 -------------------------------------------------------------------------------
 
@@ -126,6 +125,7 @@ minstr <string list>
 Return the maximum or mininum of the string list
 
 eg: printnl [maxstr "hello" "cruel" "world"]
+    printnl [maxstr "A" "B" "C"]
 
 -------------------------------------------------------------------------------
 

@@ -1,0 +1,209 @@
+# A simple Noughts and Crosses (Tic Tac Toe) game.
+# This is to demonstrate that Avios isn't simply for standard server stuff. 
+# A simple networked game like this wouldn't be worth the effort of writing 
+# in C but in Avios its simple, just give it a port to run on in the init file.
+
+var @board pcnt cwon pwon
+var @winlines @order @pieces
+
+set winlines "123 456 789 147 258 369 159 357"
+set order "5 1 3 7 9 2 4 6 8"
+
+set pieces:"1" "..~FT00~RS.. .~FGX~RS..~FGX~RS."
+set pieces:"2" ".~FTO~RS..~FTO~RS. ..~FGXX~RS.."
+set pieces:"3" ".~FTO~RS..~FTO~RS. ..~FGXX~RS.."
+set pieces:"4" "..~FTOO~RS.. .~FGX~RS..~FGX~RS."
+
+
+#--- Main procedure contains main loop
+proc main
+while 1
+	set board ". . . . . . . . ."
+	set pcnt 0
+	set cwon 0
+	set pwon 0
+	print [format "\n\n~BM-=-=-=- Noughts & Crosses -=-=-=-\n\n"]
+
+	# Computer goes first depending on rand
+	if [rand 1]=1
+		printnl "I'll start..."
+		set board#5 "X";  inc pcnt
+	else; printnl "You start..."; endif
+
+	# Mainloop
+	call display_board
+	while 1
+		call player_move
+		call end_game
+		if $result; break; endif
+
+		call computer_move
+		call display_board
+		call end_game
+		if $result; break; endif
+		endif
+	wend
+wend
+endproc
+
+
+
+#--- Display the board ---
+proc display_board
+var h i j el
+
+printnl
+# Go through positions
+for h 1 to 7 step 3
+	# Go through pieces array
+	for i 1 to 4
+		# Go through positions on line
+		for j h to [add h 2]
+			if board#j="O"; print [elements pieces#i 1]; endif
+			if board#j="X"; print [elements pieces#i 2]; endif
+			if board#j="."
+				if i=2; print [format "..~OL%d~RS..." j]
+				else; print "......"; endif
+			endif
+		next
+		printnl
+	next
+next
+printnl
+endproc
+
+
+
+#--- Get input from player ---
+proc player_move
+var pos
+
+while 1
+	print "~FTMove> ";  input pos
+	if pos=""; continue; endif
+
+	if pos<1 or pos>9 
+		printnl "~FR~OLIllegal input.";  continue
+	endif
+	if board#pos!="."
+		printnl "~FR~OLPosition is occupied.";  continue
+	endif
+	break;
+wend
+set board#pos "O"
+inc pcnt
+call display_board
+call check_player_win
+endproc
+
+
+
+#--- Computers turn ---
+proc computer_move
+var piece i s line a b c pos
+
+# See if computer can win on next move then see if player can
+set piece "X"
+inc pcnt
+for i 1 to 2
+	foreach s line in winlines
+		set a [midstr line 1]	
+		set b [midstr line 2]	
+		set c [midstr line 3]	
+
+		if board#a="." and board#b=piece and board#c=piece
+			call place_piece a
+			if piece="O"; return; endif
+			inc cwon
+			return
+		endif
+
+		if board#a=piece and board#b="." and board#c=piece
+			call place_piece b
+			if piece="O"; return; endif
+			inc cwon
+			return
+		endif
+
+		if board#a=piece and board#b=piece and board#c="."
+			call place_piece c
+			if piece="O"; return; endif
+			inc cwon
+			return
+		endif
+	nexteach
+	set piece "O"
+next
+
+# Look to create a pair
+foreach s line in winlines
+	set a [midstr line 1]	
+	set b [midstr line 2]	
+	set c [midstr line 3]	
+
+	if board#a="X" and board#b="." and board#c="."
+		call place_piece c;  return
+	endif
+
+	if board#a="." and board#b="X" and board#c="."
+		call place_piece a;  return
+	endif
+
+	if board#a="." and board#b="." and board#c="X"
+		call place_piece a;  return
+	endif
+nexteach
+
+# Pick first free spot in a certain order
+foreach s pos in order
+	if board#pos="."
+		call place_piece pos;  return
+	endif
+nexteach
+endproc
+
+
+
+#--- Place a piece for the computer ---
+proc place_piece pos
+set board:pos "X"
+printnl "~FGMy move: " pos
+endproc
+
+
+
+#--- See if player has won ---
+proc check_player_win
+var s line a b c
+
+foreach s line in winlines
+	set a [midstr line 1]	
+	set b [midstr line 2]	
+	set c [midstr line 3]	
+	if board#a="O" and board#b="O" and board#c="O"
+		inc pwon;  return
+	endif
+nexteach
+endproc
+
+
+
+#-- Display result and prompt for new game ---
+proc end_game
+var inp
+
+if pwon; print [format "\n~OL~LI*** YOU WIN ***\n\n"]
+else
+	if cwon; print [format "\n~OL~LI*** I WIN ***\n\n"]
+	else
+		if pcnt=9; print [format "\n*** GAME DRAWN ***\n\n"]
+		else; return 0;
+		endif
+	endif
+endif
+print "Would you like another game? (y/n): "
+input inp
+if inp="y" or inp="Y"; return 1; endif
+print [format "\nOk, goodbye then...\n\n"]
+exit 0
+endproc

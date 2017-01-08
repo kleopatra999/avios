@@ -51,7 +51,7 @@ when the called procedure exited. Way way too much hassle.
 
 Recursion is not allowed and if attempted will generate an error. This is 
 because multiple copies of the same procedure cannot exist on the stack for
-technical reasons. This will change in future releases. This problem must be
+technical reasons. This might change in future releases. This problem must be
 borne in mind when using interrupts (ie an interrupt calls a procedure which
 is already on the stack), please read the interrupts file for the solution.
 

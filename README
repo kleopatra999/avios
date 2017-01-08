@@ -51,9 +51,10 @@ not as a fully functioning talker so don't be disappointed when you run it
 (though if you're really not bothered about features it could be used as is)
 if you've been using NUTS or some other talker. Another application is a simple
 web server program which you should be able to see shows how a separate web
-server and GCI back end can be built using Avios. I say simple as there is
-no database connectivity and downloading gif and jpeg files seems to be a 
-problem for some reason (though I intend to fix this bug in the next release).
+server and GCI back end can be built using Avios and there is a noughts and
+crosses game too. I say a simple web server as there is no database 
+connectivity and downloading gif and jpeg files are a problem as Avios is text 
+based and isn't geared up to deal with binary data.
    When you run Avios you will see that the syslog says that the talkserv 
 program gets open() errors. This is perfectly normal as talkserv is simply
 trying to check some message board files which don't yet exist.

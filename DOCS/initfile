@@ -47,6 +47,10 @@ wait_on_dint YES/NO
     death" command. If NO then it will attempt to interrupt but if 
     unsuccessfull will exit anyway. Default is YES.
 
+pause_on_sigtstp YES/NO
+    If YES then Avios will pause after doing a status dump due to a control-Z
+    (SIGTSTP) , if NO then it continues running. Default is YES.
+
 colour_def ON/OFF
     If ON then any colour commands in strings sent to STDOUT by processes will 
     be converted to ansi colour codes by default. If OFF then colour commands 

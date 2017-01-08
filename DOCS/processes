@@ -10,13 +10,14 @@ These are:
 
 Terminal processes:
     These are created by using the TERM option and this means that their
-    standard I/O (the streams "STDIN" and "STOUT") is through the tty/terminal 
+    standard I/O (the streams "STDIN" and "STDOUT") is through the tty/terminal 
     device that Avios was booted from. This are usefull for testing code or
     if you simply want to use Avios as a command line interpreter.
 
 Background processes:
     Created using the BACK option these run in the background and the standard 
-    I/O streams are not linked to any I/O channels.
+    I/O streams are not linked to any I/O channels. Trying to read or write
+    to them will cause an "Unset stream" error.
 
 Image processes:
     If a process has a port number as the option then an image process is
