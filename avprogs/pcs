@@ -27,26 +27,24 @@ proc ps_proc
 var pid pname cnt info
 
 print [format "\n~BB*** Processes at %s ***\n\n" [gettime time]]
-set cnt 0
 foreach pid pname in $pcs
 	set info [pcsinfo pid]
 	printnl [format "~FY%-4d  ~FG%-10s  ~FT%s" pid pname [elements info 2 [count info]]]
-	inc cnt
 nexteach
-printnl [format "\nTotal of %d processes.\n" cnt]
+printnl [format "\nTotal of %d processes.\n" $pcs_count]
 endproc
 
 
 
 proc kill_proc killid
-var pid pname
+var pid pname err
 
 if killid=""
 	printnl "Kill which process?";  return
 endif
 foreach pid pname in $pcs
 	if killid=pid
-		if [trap [kill pid]]
+		if [set err [trap [kill pid]]]
 			printnl "Unable to kill process.";  return
 		endif
 		printnl "Process killed."

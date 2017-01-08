@@ -38,10 +38,13 @@ interrupt servpid with "DEAD" on death
 
 ### Main loop
 onint from nonchild intproc
-while 1
+while TRUE
 	input line
-	if [midstr line 1]="."; call commands [midstr line 2 [strlen line]]
-	else; printnl [format "SAY %s" line]; endif
+	if [midstr line 1]="."
+		call commands [midstr line 2 [strlen line]]
+	else
+		printnl [format "SAY %s" line]
+	endif
 wend
 endproc
 
@@ -63,7 +66,7 @@ else
 endif
 
 set cnt 1
-while 1
+while TRUE
 	if cnt>3
 		if file_exists; close fp; endif
 		return FALSE
@@ -174,7 +177,8 @@ else
 	set mesg [midstr $int_mesg [add [strlen pid] 2] [strlen $int_mesg]]
 	if mesg="PRM"
 		set age [gettime time [sub [gettime rawtime] [gettime created]]]
-		print [format "~FT<%s, %s, %s>\n" [midstr [gettime time] 1 5] [midstr age 1 5] name]
+		print [format "~FT<%s, %s, %s>\n" \
+		      [midstr [gettime time] 1 5] [midstr age 1 5] name]
 	else; printnl mesg
 	endif
 endif

@@ -3,6 +3,8 @@
 # A simple networked game like this wouldn't be worth the effort of writing 
 # in C but in Avios its simple, just give it a port to run on in the init file.
 
+&stdalias
+
 var @board pcnt cwon pwon
 var @winlines @order @pieces
 
@@ -17,7 +19,7 @@ set pieces:"4" "..~FTOO~RS.. .~FGX~RS..~FGX~RS."
 
 #--- Main procedure contains main loop
 proc main
-while 1
+while TRUE
 	set board ". . . . . . . . ."
 	set pcnt 0
 	set cwon 0
@@ -28,11 +30,13 @@ while 1
 	if [rand 1]
 		printnl "~FGI'll start..."
 		set board#5 "X";  inc pcnt
-	else; printnl "~FTYou start..."; endif
+	else
+		printnl "~FTYou start..."
+	endif
 
 	# Mainloop
 	call display_board
-	while 1
+	while TRUE
 		call player_move
 		call end_game
 		if $result; break; endif
@@ -41,7 +45,6 @@ while 1
 		call display_board
 		call end_game
 		if $result; break; endif
-		endif
 	wend
 wend
 endproc
@@ -79,7 +82,7 @@ endproc
 proc player_move
 var pos
 
-while 1
+while TRUE
 	print "~FTMove> ";  input pos
 	if pos=""; continue; endif
 

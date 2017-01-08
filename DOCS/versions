@@ -50,3 +50,11 @@ Versions relased so far (and the release date):
        microseconds in the second.
    Added -q quite bootup mode command line option.
    Minor bug fixes.
+
+1.3.1 (28/10/97)
+   Added optional arguments to break and continue commands and created $break
+       and $cont variables.
+   Fixed bug where subscripts of shared arrays were not being set properly when 
+       set using another array.
+   Moved the mainloop() function to a more logical position in the code.
+   Other minor code changes.

@@ -9,6 +9,8 @@
 # time.
 #
 
+#-------------- Set up the aliases -------------
+
 &stdalias
 
 alias 20 MAX_LINES

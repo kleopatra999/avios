@@ -1,7 +1,7 @@
 PARAMETERS:
 code_path        avprogs
 #root_path        .
-#allow_ur_path    NO
+allow_ur_path    YES
 kill_any         YES
 child_die        YES
 #ignore_sigterm   YES
@@ -18,7 +18,7 @@ connect_timeout  1
 
    
 PROCESSES:
-TERM pcs        pcs
+#TERM pcs        pcs
 4000 talkclient talkclient
 BACK talkserv   talkserv
 4010 clock      clock

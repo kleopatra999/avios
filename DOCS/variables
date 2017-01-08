@@ -143,7 +143,8 @@ a whole.
 Systemwide ones:
    $pcs - This array holds the list of process names indexed by process number.
   
-   $pcs_count - Current number of processes (including images) on the system.
+   $pcs_count - Current number of processes (including images and the 
+                system_dummy process) on the system.
      
    $error - This array stores the system error strings indexed by error number.
 
@@ -208,4 +209,8 @@ Process specific ones:
 
    $last_error - Set to the error number of the error last caught by a trap
                  command.
+
+   $break - Set by the optional argument with the break command.
+
+   $cont - Set by the optional argument with the continue command.
 

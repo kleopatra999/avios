@@ -1,5 +1,5 @@
 /******************************************************************************
-                           AVIOS 1.3.0 header file
+                           AVIOS 1.3.1 header file
                       Copyright (C) Neil Robertson 1997
  ******************************************************************************/
 
@@ -576,8 +576,8 @@ char *error_mesg[NUM_ERRS]={
 	"Cannot open file",
 	"Cannot delete file",
 	"Cannot rename file",
-	"Cannot stat file",
-	"Cannot change file permissions",
+	"Cannot stat filesystem entry",
+	"Cannot change filesystem entry permissions",
 	"File is in use",
 	"Cannot open directory",
 	"Maximum process count reached",
@@ -637,8 +637,8 @@ enum error_codes {
 	ERR_CANT_OPEN_FILE,
 	ERR_CANT_DELETE_FILE,
 	ERR_CANT_RENAME_FILE,
-	ERR_CANT_STAT_FILE,
-	ERR_CANT_CHANGE_FILE_PERM,
+	ERR_CANT_STAT_FS_ENTRY,
+	ERR_CANT_CHANGE_FS_ENTRY_PERM,
 	ERR_FILE_IN_USE,
 	ERR_CANT_OPEN_DIR,
 	ERR_MAX_PROCESSES,
@@ -673,14 +673,10 @@ char *colcom[NUM_COLS]={
 "BB","BM","BT","BW"
 };
 
-
-/* Globals that map onto process struct elements */
-int num_words;
-
 /* Other globals */
-int be_daemon,max_processes,max_mesgs,max_errors,exit_remain,swapout_after;
-int process_count,memory_reserve,eval_result,real_line,inst_cnt;
-int colour_def,kill_any,child_die,ignore_sigterm,wait_on_dint;
+int num_words,be_daemon,max_processes,max_mesgs,max_errors,exit_remain;
+int swapout_after,process_count,memory_reserve,eval_result,real_line;
+int inst_cnt,colour_def,kill_any,child_die,ignore_sigterm,wait_on_dint;
 int pause_on_sigtstp,consock,conalarm_called,connect_timeout;
 int allow_ur_path,tuning_delay,qbm;
 

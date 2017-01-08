@@ -1,8 +1,8 @@
 /****************************************************************************
-                            AVIOS version 1.3.0
+                            AVIOS version 1.3.1
          A VIrtual Operating System, Copyright (C) Neil Robertson 1997
 
-                     Version date: 15th October 1997
+                     Version date: 28th October 1997
 
  Created out of blood and sweat using incantations of the C after dusk and 
  in dark dungeons found in London, England from January to October 1997. 
@@ -39,9 +39,9 @@
 #include <pwd.h>
 #include <errno.h>
 
-#include "avios130.h"
+#include "avios131.h"
 
-#define VERSION "1.3.0"
+#define VERSION "1.3.1"
 
 struct streams *get_stream();
 
@@ -115,130 +115,6 @@ write_syslog(text);
 
 setup_signals();
 mainloop();
-}
-
-
-
-/*** This function contains the Avios main loop which is basically a round 
-     robin scheduler though the actual instruction count for swapout is done 
-     by exec_process()  */
-mainloop()
-{
-struct process *pcs_next;
-int ret;
-
-avtime.tv_sec=0;
-avtime.tv_usec=0;
-boottime=time(0);
-
-/* The main loop itself */
-while(1) {
-	real_current_pcs=NULL;
-	if (first_pcs->next==NULL) {
-		uptime();
-		write_syslog("*** System halted: All processes exited. ***");  
-		exit(0);
-		}
-
-	/* Sleep if tuning_delay required */
-#ifndef NO_USLEEP
-	if (tuning_delay) usleep(tuning_delay);
-#endif
-
-	/* Get time */
-	gettimeofday(&avtime,NULL);
-
-	/* Check for any connects to TCP ports */
-	check_for_connects();
-
-	/* Loop through processes */
-	for(current_pcs=first_pcs->next;current_pcs!=NULL;current_pcs=pcs_next) {
-		pcs_next=current_pcs->next;
-
-		/* real_current_pcs used in sig_handler as current_pcs is 
-		   corrupted by a number of the runtime functions */
-		real_current_pcs=current_pcs; 
-
-		/* Load in new process and run */
-		load_process_state(current_pcs);
-
-		/* See if process timer (if set) has reached its goal. */
-		if (current_pcs->timer_sec &&
-		    current_pcs->t_int_proc!=NULL &&
-		    current_pcs->int_enabled &&
-		    !current_pcs->interrupted &&
-		    (avtime.tv_sec > current_pcs->timer_sec ||
-		     (avtime.tv_sec==current_pcs->timer_sec &&
-		      avtime.tv_usec>=current_pcs->timer_usec))) {
-			set_variable("$int_mesg",NULL,"0 TIMER",1);
-			current_pcs->old_status=current_pcs->status;
-			current_pcs->status=TIMER_INT;
-			current_pcs->timer_sec=0;
-			current_pcs->timer_usec=0;
-			}
-		inst_cnt=0;
-
-		/* Switch on status */
-		switch(current_pcs->status) {
-			case IMAGE      :
-			case CHILD_DWAIT:
-			case SPEC_DWAIT : continue;
-
-			case OUTPUT_WAIT:
-			if (current_outstream==NULL || 
-			    !current_outstream->locked ||
-			    current_outstream->owner->mesg_cnt<max_mesgs) {
-				current_pcs->status=RUNNING;  break;
-				}
-			continue;
-
-			case INPUT_WAIT: 
-			if ((ret=read_stream())!=OK) {
-				current_pcs->err_cnt++;
-				error_exit(ret,real_line);  
-				continue;
-				}
-			/* If process has been reading off a socket and that 
-			   has been closed remotely exit it */
-			if (current_pcs->status==EXITING) {
-				process_exit();  continue;
-				}
-			break;
-
-			case SLEEPING:
-			if (avtime.tv_sec > current_pcs->sleep_sec ||
-			    (avtime.tv_sec==current_pcs->sleep_sec &&
-			     avtime.tv_usec>=current_pcs->sleep_usec)) {
-				current_pcs->status=RUNNING;  
-				current_pcs->sleep_sec=0;  
-				current_pcs->sleep_usec=0;  
-				current_pcs->pc=prog_word[current_pcs->pc].end_pos+1;
-				break;
-				}
-			continue;
-
-			case CHILD_INT   :
-			case NONCHILD_INT:
-			case TIMER_INT   :
-			if ((ret=interrupt_process())!=OK) {
-				current_pcs->err_cnt++;
-				error_exit(ret,real_line);  
-				continue;
-				}
-			if (current_pcs->status!=RUNNING) continue;
-			break;
-			
-			case EXITING: process_exit();  continue;
-			}
-
-		/* Execute process for 'swapout_after' number of commands */
-		ret=exec_process(current_pcs->pc,0);
-		save_process_state(current_pcs,0);
-		if (ret!=OK) {
-			error_exit(ret,real_line);  continue;
-			}
-		}
-	}
 }
 
 
@@ -344,7 +220,6 @@ int i,ret,flags;
 if ((ret=create_process("system_dummy",1))!=OK) goto ERROR;
 set_string(&first_pcs->site,"<null>");
 
-
 /* Create process name array and process count */
 flags=READONLY | ARRAY;
 if ((ret=create_variable("$pcs",NULL,NULL,flags,1))!=OK) goto ERROR;
@@ -360,13 +235,11 @@ if ((ret=set_variable("$build",NULL,build,1))!=OK) goto ERROR;
 if ((ret=create_variable("$version",NULL,NULL,READONLY,1))!=OK) goto ERROR;
 if ((ret=set_variable("$version",NULL,VERSION,1))!=OK) goto ERROR;
 
-
 /* Version of Unix we're on - same as "uname -a" unix command output */
 uname(&un);
 sprintf(text,"%s %s %s %s %s",un.sysname,un.nodename,un.release,un.version,un.machine);
 if ((ret=create_variable("$uname",NULL,NULL,READONLY,1))!=OK) goto ERROR;
 if ((ret=set_variable("$uname",NULL,text,1))!=OK) goto ERROR;
-
 
 /* Info on the user who's running the system. If for some reason there is no
    info then just leave variable blank. Don't include users encrypted password
@@ -382,7 +255,6 @@ if ((pwd=getpwuid(getuid()))!=NULL) {
 	set_variable("$unixuser:\"home\"",NULL,pwd->pw_dir,1);
 	set_variable("$unixuser:\"shell\"",NULL,pwd->pw_shell,1);
 	}
-
 
 /* Create error array. Ignore "OK" 'error' as we can't have an array position
    zero anyway. */
@@ -1255,9 +1127,6 @@ for(arr=current_var->arr;arr!=NULL;arr=arr->next) {
 		}
 	arrprev=arr;
 	}
-/* Set new process count */
-process_count--;
-load_process_state(first_pcs);
 
 /* Reset signals */
 if (boottime) {
@@ -1267,7 +1136,10 @@ if (boottime) {
 	signal(SIGTERM,sig_handler);
 	}
 
-sprintf(text,"%d",process_count);
+load_process_state(first_pcs);
+
+/* Set new process count and return */
+sprintf(text,"%d",--process_count);
 return set_variable("$pcs_count",NULL,text,1);
 }
 
@@ -3143,10 +3015,10 @@ for(i=0;i<num_words;++i) {
 	switch(com_num) {
 		case PROC   : in_proc=1;  break;
 		case ENDPROC: in_proc=0;  break;
-		case ALIAS:
-		case VAR  :
-		case SET  :  
-		case SHARE:
+		case ALIAS  :
+		case VAR    :
+		case SET    :  
+		case SHARE  :
 		case UNSHARE: break;
 
 		default : 
@@ -3296,6 +3168,10 @@ if ((ret=create_variable("$out",NULL,NULL,READONLY,1))!=OK) return ret;
    is set to 1 */
 if ((ret=create_variable("$print_ok",NULL,NULL,READONLY,1))!=OK) return ret;
 if ((ret=set_variable("$print_ok",NULL,"0",1))!=OK) return ret;
+
+/* Variable set by optional break and continue command arguments */
+if ((ret=create_variable("$break",NULL,NULL,READONLY,1))!=OK) return ret;
+if ((ret=create_variable("$cont",NULL,NULL,READONLY,1))!=OK) return ret;
 
 /* Network vars */
 if ((ret=create_variable("$site",NULL,NULL,READONLY,1))!=OK) return ret;
@@ -4476,8 +4352,133 @@ return ERR_INTERNAL;
 
 /******************************************************************************
                               RUNTIME FUNCTIONS
-    Theres are the functions that run the actual AviosPL language commands.
+    Theres are the functions that actually run the processes. This includes
+    all the command functions and of course the main program loop.
  ******************************************************************************/
+
+/*** This function contains the Avios main loop which is basically a round 
+     robin scheduler though the actual instruction count for swapout is done 
+     by exec_process()  */
+mainloop()
+{
+struct process *pcs_next;
+int ret;
+
+avtime.tv_sec=0;
+avtime.tv_usec=0;
+boottime=time(0);
+
+/* The main loop itself */
+while(1) {
+	real_current_pcs=NULL;
+	if (first_pcs->next==NULL) {
+		uptime();
+		write_syslog("*** System halted: All processes exited. ***");  
+		exit(0);
+		}
+
+	/* Sleep if tuning_delay required */
+#ifndef NO_USLEEP
+	if (tuning_delay) usleep(tuning_delay);
+#endif
+
+	/* Get time */
+	gettimeofday(&avtime,NULL);
+
+	/* Check for any connects to TCP ports */
+	check_for_connects();
+
+	/* Loop through processes */
+	for(current_pcs=first_pcs->next;current_pcs;current_pcs=pcs_next) {
+		pcs_next=current_pcs->next;
+
+		/* real_current_pcs used in sig_handler as current_pcs is 
+		   corrupted by a number of the runtime functions */
+		real_current_pcs=current_pcs; 
+
+		/* Load in new process and run */
+		load_process_state(current_pcs);
+
+		/* See if process timer (if set) has reached its goal. */
+		if (current_pcs->timer_sec &&
+		    current_pcs->t_int_proc!=NULL &&
+		    current_pcs->int_enabled &&
+		    !current_pcs->interrupted &&
+		    (avtime.tv_sec > current_pcs->timer_sec ||
+		     (avtime.tv_sec==current_pcs->timer_sec &&
+		      avtime.tv_usec>=current_pcs->timer_usec))) {
+			set_variable("$int_mesg",NULL,"0 TIMER",1);
+			current_pcs->old_status=current_pcs->status;
+			current_pcs->status=TIMER_INT;
+			current_pcs->timer_sec=0;
+			current_pcs->timer_usec=0;
+			}
+		inst_cnt=0;
+
+		/* Switch on status */
+		switch(current_pcs->status) {
+			case IMAGE      :
+			case CHILD_DWAIT:
+			case SPEC_DWAIT : continue;
+
+			case OUTPUT_WAIT:
+			if (current_outstream==NULL || 
+			    !current_outstream->locked ||
+			    current_outstream->owner->mesg_cnt<max_mesgs) {
+				current_pcs->status=RUNNING;  break;
+				}
+			continue;
+
+			case INPUT_WAIT: 
+			if ((ret=read_stream())!=OK) {
+				current_pcs->err_cnt++;
+				error_exit(ret,real_line);  
+				continue;
+				}
+			/* If process has been reading off a socket and that 
+			   has been closed remotely exit it */
+			if (current_pcs->status==EXITING) {
+				process_exit();  continue;
+				}
+			break;
+
+			case SLEEPING:
+			if (avtime.tv_sec > current_pcs->sleep_sec ||
+			    (avtime.tv_sec==current_pcs->sleep_sec &&
+			     avtime.tv_usec>=current_pcs->sleep_usec)) {
+				current_pcs->status=RUNNING;  
+				current_pcs->sleep_sec=0;  
+				current_pcs->sleep_usec=0;  
+				current_pcs->pc=prog_word[current_pcs->pc].end_pos+1;
+				break;
+				}
+			continue;
+
+			case CHILD_INT   :
+			case NONCHILD_INT:
+			case TIMER_INT   :
+			if ((ret=interrupt_process())!=OK) {
+				current_pcs->err_cnt++;
+				error_exit(ret,real_line);  
+				continue;
+				}
+			if (current_pcs->status!=RUNNING) continue;
+			break;
+			
+			case EXITING: process_exit();  continue;
+			}
+
+		/* Execute process for 'swapout_after' number of commands */
+		ret=exec_process(current_pcs->pc,0);
+		save_process_state(current_pcs,0);
+		if (ret!=OK) {
+			error_exit(ret,real_line);  continue;
+			}
+		}
+	}
+}
+
+
 
 /*** Main runtime function for the processes which contains the simple 
      time-slice code. ***/
@@ -4721,6 +4722,7 @@ int com_num,pc;
 int pc2,ret,val,end,len,is_var,cnt,ok;
 struct vars *var,*v_old,*c_old;
 char *varname,*varval,*w,*valptr[2];
+char *shared_1,*shared_2,*s;
 
 is_var=0;
 end=prog_word[pc].end_pos;
@@ -4795,15 +4797,35 @@ switch(com_num) {
 	if (var->flags & READONLY) return ERR_VAR_IS_READONLY; 
 	while(current_var->refvar!=NULL) current_var=current_var->refvar;
 
+	/* See if either variables are shared (assuming w is a var name) */
+	shared_1=NULL;
+	s=varname;
+	while(*s) {
+		if (*s==':' || *s=='#' || *s=='?') break;
+		if (*s=='.') {  shared_1=++s;  break;  }
+		++s;
+		}
+
+	shared_2=NULL;
+	s=w;
+	while(*s) {
+		if (*s=='"' || *s==':' || *s=='#' || *s=='?') break;
+		if (*s=='.') {  shared_2=++s;  break;  }
+		++s;
+		}
+
 	/* If an array, use copy_array to copy over subscripts. Make sure
 	   both vars are arrays and that we are setting entire variable and
 	   not one element of it (hence strcmp tests) unless its a refvar in
-	   which case we couldn't be refering to an element anyway. */
+	   which case we couldn't be refering to an element anyway. This if
+	   statement is hideous. But it works. */
 	if (is_var &&
 	    (var->flags & ARRAY) && 
 	    (current_var->flags & ARRAY) &&
-	    (v_old!=var || !strcmp(var->name,varname)) && 
-	    (c_old!=current_var || !strcmp(current_var->name,w))) {
+	    (v_old!=var || !strcmp(var->name,varname) ||
+	     (shared_1 && !strcmp(var->name,shared_1))) && 
+	    (c_old!=current_var || !strcmp(current_var->name,w) ||
+	     (shared_2 && !strcmp(current_var->name,shared_2)))) {
 		if ((ret=copy_array(current_var,var))!=OK) return ret;
 		}
 	else {
@@ -5730,8 +5752,17 @@ return OK;
 com_break(com_num,pc)
 int com_num,*pc;
 {
+int ret;
+
 if (current_loop==NULL || current_loop->proc!=current_proc) 
 	return ERR_UNEXPECTED_COMMAND;
+
+/* Set $break variable if optional argument given */
+if (prog_word[*pc].end_pos - *pc) {
+	++*pc;
+	if ((ret=push_rstack_result(pc,ALL_LEGAL))!=OK) return ret;
+	set_variable("$break",NULL,rstack_ptr->value,1);
+	}
 
 *pc=prog_word[current_loop->end_pos].end_pos+1;
 current_loop->foreach_pos=-1;
@@ -5748,8 +5779,18 @@ return OK;
 com_continue(com_num,pc)
 int com_num,*pc;
 {
+int ret;
+
 if (current_loop==NULL || current_loop->proc!=current_proc) 
 	return ERR_UNEXPECTED_COMMAND;
+
+/* Set $cont variable if optional argument given */
+if (prog_word[*pc].end_pos - *pc) {
+	++*pc;
+	if ((ret=push_rstack_result(pc,ALL_LEGAL))!=OK) return ret;
+	set_variable("$cont",NULL,rstack_ptr->value,1);
+	}
+
 *pc=current_loop->start_pos;
 return OK;
 }
@@ -6130,7 +6171,7 @@ switch(com_num) {
 		sprintf(text,"Process %d (%s) got lstat() error with file \"%s\": %s",current_pcs->pid,current_pcs->name,pathname,sys_errlist[errno]);
 		write_syslog(text);
 		free(fs);
-		return ERR_CANT_STAT_FILE;
+		return ERR_CANT_STAT_FS_ENTRY;
 		}
 
 	switch(fs->st_mode & S_IFMT) {
@@ -6142,7 +6183,7 @@ switch(com_num) {
 		case S_IFSOCK: strcpy(type,"socket"); break;
 		default: strcpy(type,"unknown");
 		}
-	sprintf(text,"%s %d %o %d %d",type,(int)fs->st_size,fs->st_mode & 0x1FF,(int)fs->st_mtime,(int)fs->st_atime);
+	sprintf(text,"%s %d %03o %d %d",type,(int)fs->st_size,fs->st_mode & 0x1FF,(int)fs->st_mtime,(int)fs->st_atime);
 	free(fs);
 	return push_rstack(text);
 	}
@@ -6328,12 +6369,12 @@ switch(com_num) {
 	    valptr[1][2]>'7') return ERR_INVALID_ARGUMENT;
 
 	filemode=(valptr[1][0]-48) << 6;
-	filemode=filemode | (valptr[1][1]-48 << 3);
-	filemode=filemode | (valptr[1][2]-48);
+	filemode|=(valptr[1][1]-48) << 3;
+	filemode|=valptr[1][2]-48;
 	if (chmod(pathname1,filemode)==-1) {
 		sprintf(text,"Process %d (%s) got chmod() error with file \"%s\": %s",current_pcs->pid,current_pcs->name,pathname1,sys_errlist[errno]);
 		write_syslog(text);
-		return ERR_CANT_CHANGE_FILE_PERM;
+		return ERR_CANT_CHANGE_FS_ENTRY_PERM;
 		}
 	return OK;
 	}
@@ -7960,31 +8001,29 @@ com_echo(com_num,pc)
 int com_num,pc;
 {
 char *w,seq[4],val[2];
-int com;
+int on;
 
 if (prog_word[pc].end_pos - pc!=1) return ERR_SYNTAX;
-if (!is_sock_stream(current_instream)) goto SKIP; /* Can't set if not socket */
+if (!is_sock_stream(current_instream)) goto RET; /* Can't set if not socket */
 
 w=prog_word[pc+1].word;
-if (!strcmp(w,"off")) com=0;
-else if (!strcmp(w,"on")) com=1;
-	else if (!strcmp(w,"val")) com=2;
+if (!strcmp(w,"off")) on=0;
+else if (!strcmp(w,"on")) on=1;
+	else if (!strcmp(w,"val")) goto RET;
 		else return ERR_SYNTAX;
 
-switch(com) {
-	case 0:
-	current_instream->echo=0;
-	sprintf(seq,"%c%c%c",255,251,1);
-	write_stream(seq);
-	break;
-
-	case 1:
+if (on) {
 	current_instream->echo=1;
 	sprintf(seq,"%c%c%c",255,252,1);
 	write_stream(seq);
-	break;
 	}
-SKIP:
+else {
+	current_instream->echo=0;
+	sprintf(seq,"%c%c%c",255,251,1);
+	write_stream(seq);
+	}
+
+RET:
 sprintf(val,"%d",current_instream->echo);
 return push_rstack(val);
 }

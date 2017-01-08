@@ -37,6 +37,7 @@ use. These are:
  -i <init file>: Set the init file to something other than the default 'init'.
  -s <syslog file>: Set the syslog to write to a file rather than stdout.
  -d: Run as a daemon.
+ -q: Quiet bootup mode - Don't print any non-syslog messages.
  -v: Print the Avios version number.
  -h: Print some command line option help.
 

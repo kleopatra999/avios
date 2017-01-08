@@ -261,11 +261,23 @@ eg: choose cnt
  
 -------------------------------------------------------------------------------
 
-break
-continue
+break [<argument>]
+continue [<argument>]
 
 These work as per the commands in C except for continue within the choose
-structure. See above.
+structure (see above). The optional arguments set the $break and $cont 
+variables. If no argument is given the variables remain at their current
+setting.
+
+eg:
+   set j 0
+   while $break!="END"
+       inc j
+       for i 1 to 10
+           if [add i j]=5; break "END"; endif
+       next
+   wend
+   printnl i "," j
 
 -------------------------------------------------------------------------------
 

@@ -94,9 +94,9 @@ have found some suspected bugs please email me about it (but *please* RTFM
 first and make sure you're not getting it wrong!!)
 
 
-NOTE: This is going to be the last upgrade release of Avios (ie there will
-      be no 1.4.0 or 2.0) as there seems to be too little interest in the
-      system. Any further releases will be restricted to patch releases.
+NOTE: Any further releases of Avios will be restricted to patch releases. There
+      will be no further major or minor release versions. This is due to lack
+      of interest in the system.
 
 Neil Robertson
 
